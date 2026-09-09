@@ -6,14 +6,24 @@ class SocketService {
 
   connect(): Socket {
     if (!this.socket) {
-      const url =
-        API_BASE_URL && API_BASE_URL.length > 0
-          ? API_BASE_URL
-          : typeof window !== 'undefined'
-            ? window.location.origin
-            : '';
+      let socketHost = typeof window !== 'undefined' ? window.location.origin : '';
+      let socketPath = '/socket.io';
 
-      this.socket = io(url, {
+      if (API_BASE_URL && API_BASE_URL.length > 0) {
+        try {
+          const urlObj = new URL(API_BASE_URL, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+          socketHost = urlObj.origin;
+          const cleanPath = urlObj.pathname.replace(/\/$/, '');
+          if (cleanPath && cleanPath !== '/') {
+            socketPath = `${cleanPath}/socket.io`;
+          }
+        } catch {
+          socketHost = API_BASE_URL;
+        }
+      }
+
+      this.socket = io(socketHost, {
+        path: socketPath,
         transports: ['polling', 'websocket'],
         reconnection: true,
         reconnectionAttempts: Infinity,
