@@ -4,6 +4,7 @@ import { AlertCircle, Radio, Sliders, RotateCcw, Eye, ArrowLeftRight, ArrowUpDow
 import { CentroidTracker } from '../utils/centroidTracker';
 import type { LineConfig, TrackedObject } from '../utils/centroidTracker';
 import { createDetectionLog, getAnalytics } from '../routes';
+import { API_BASE_URL } from '../routes/config';
 import { aiModelService } from '../services/aiModelService';
 import { socketService } from '../services/socketService';
 import { TRAFFIC_CONFIG, calculateTrafficDensity } from '../config/traffic.config';
@@ -50,7 +51,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
     selectedCameraUrl &&
     (selectedCameraUrl.startsWith('rtsp://') || selectedCameraUrl.startsWith('rtsps://') || cameraType === 'IP_RTSP')
   );
-  const mjpegStreamUrl = isRtspStream && cameraId ? `/api/v1/cctv/cameras/${cameraId}/stream` : '';
+  const mjpegStreamUrl = isRtspStream && cameraId ? `${API_BASE_URL || ''}/api/v1/cctv/cameras/${cameraId}/stream` : '';
 
   const [lineOrientation, setLineOrientation] = useState<'VERTICAL' | 'HORIZONTAL'>('HORIZONTAL');
   const [linePositionPercent, setLinePositionPercent] = useState<number>(50); // 50% screen position
@@ -942,10 +943,10 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         />
 
         {/* Live Stream Image for RTSP or Remote Device */}
-        {(hasRemoteFeed || isRtspStream) && (
+        {(hasRemoteFeed || isRtspStream || Boolean(remoteImageSrc)) && (
           <img
             ref={remoteDisplayImgRef}
-            src={isRtspStream ? mjpegStreamUrl : remoteImageSrc}
+            src={remoteImageSrc || mjpegStreamUrl}
             alt="Live Camera Feed"
             crossOrigin="anonymous"
             onLoad={() => {
@@ -956,7 +957,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              display: 'block',
+              display: (hasRemoteFeed || Boolean(remoteImageSrc)) ? 'block' : 'none',
             }}
           />
         )}
@@ -974,7 +975,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         />
 
         {/* Waiting for Remote Feed Placeholder */}
-        {!hasRemoteFeed && cameraId !== 'default-webcam' && (!selectedCameraUrl || selectedCameraUrl === 'webcam' || selectedCameraUrl === 'remote-stream') && !cameraError && (
+        {!hasRemoteFeed && !remoteImageSrc && cameraId !== 'default-webcam' && (!selectedCameraUrl || selectedCameraUrl === 'webcam' || selectedCameraUrl === 'remote-stream') && !cameraError && (
           <div style={{ position: 'absolute', textAlign: 'center', padding: '1.2rem', color: 'var(--text-secondary)', zIndex: 5 }}>
             <Radio size={28} color="#60a5fa" style={{ margin: '0 auto 8px', animation: 'pulse 1.5s infinite' }} />
             <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Waiting for Remote Device Feed</h4>
@@ -985,7 +986,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         )}
 
         {/* Waiting for RTSP Camera Stream Placeholder */}
-        {!hasRemoteFeed && isRtspStream && !cameraError && (
+        {!hasRemoteFeed && !remoteImageSrc && isRtspStream && !cameraError && (
           <div style={{ position: 'absolute', textAlign: 'center', padding: '1.2rem', color: 'var(--text-secondary)', zIndex: 5 }}>
             <Radio size={28} color="#10b981" style={{ margin: '0 auto 8px', animation: 'pulse 1.5s infinite' }} />
             <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Connecting to CP PLUS Live Stream...</h4>
