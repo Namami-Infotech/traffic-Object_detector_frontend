@@ -4,7 +4,7 @@
 export const TRAFFIC_CONFIG = {
   // AI Model Configuration
   AI: {
-    CONFIDENCE_THRESHOLD: 0.5,
+    CONFIDENCE_THRESHOLD: 0.25, // Lowered for high sensitivity on CCTV and screen feeds
     DETECTION_INTERVAL_MS: 200, // 5 FPS frame sampling target per camera
     ALLOWED_CLASSES: ['car', 'truck', 'bus', 'motorcycle', 'bicycle', 'person'],
   },

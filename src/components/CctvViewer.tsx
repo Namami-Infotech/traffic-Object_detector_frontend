@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
-import { Play, Pause, AlertCircle, Radio, Sliders, RotateCcw, Eye, ArrowLeftRight, ArrowUpDown } from 'lucide-react';
+import { AlertCircle, Radio, Sliders, RotateCcw, Eye, ArrowLeftRight, ArrowUpDown } from 'lucide-react';
 import { CentroidTracker } from '../utils/centroidTracker';
 import type { LineConfig, TrackedObject } from '../utils/centroidTracker';
 import { createDetectionLog, getAnalytics } from '../routes';
@@ -13,8 +13,9 @@ export interface DetectionUpdateData {
   inCount: number;
   outCount: number;
   activeCount: number;
-  inEvents?: Array<{ id: number; label: string; timestamp: number }>;
-  outEvents?: Array<{ id: number; label: string; timestamp: number }>;
+  inEvents?: Array<{ id: number; label: string; score?: number; timestamp: number }>;
+  outEvents?: Array<{ id: number; label: string; score?: number; timestamp: number }>;
+  detectionEvents?: Array<{ id: number; label: string; score?: number; timestamp: number }>;
   log: any[];
 }
 
@@ -40,12 +41,18 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
   const trackerRef = useRef<CentroidTracker>(new CentroidTracker());
 
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
-  const [isDetecting, setIsDetecting] = useState<boolean>(true);
+  const [isDetecting] = useState<boolean>(true);
   const [fps, setFps] = useState<number>(0);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   // Virtual Line & Tracking Settings State (Default VERTICAL - Khadi Line)
-  const [lineOrientation, setLineOrientation] = useState<'VERTICAL' | 'HORIZONTAL'>('VERTICAL');
+  const isRtspStream = Boolean(
+    selectedCameraUrl &&
+    (selectedCameraUrl.startsWith('rtsp://') || selectedCameraUrl.startsWith('rtsps://') || cameraType === 'IP_RTSP')
+  );
+  const mjpegStreamUrl = isRtspStream && cameraId ? `/api/v1/cctv/cameras/${cameraId}/stream` : '';
+
+  const [lineOrientation, setLineOrientation] = useState<'VERTICAL' | 'HORIZONTAL'>('HORIZONTAL');
   const [linePositionPercent, setLinePositionPercent] = useState<number>(50); // 50% screen position
   const [showTrajectories, setShowTrajectories] = useState<boolean>(true);
 
@@ -54,13 +61,26 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
   const [_outCount, setOutCount] = useState<number>(0);
   const inCountRef = useRef<number>(0);
   const outCountRef = useRef<number>(0);
+  const [liveCounts, setLiveCounts] = useState<Record<string, number>>({});
+  const [activeVehicleCount, setActiveVehicleCount] = useState<number>(0);
+
+  // Per-camera IN / OUT breakdown for each vehicle (e.g. CAR: { in: 1, out: 1 })
+  const [cameraVehicleInOut, setCameraVehicleInOut] = useState<
+    Record<string, { in: number; out: number }>
+  >({
+    CAR: { in: 0, out: 0 },
+    TRUCK: { in: 0, out: 0 },
+    BUS: { in: 0, out: 0 },
+    MOTORCYCLE: { in: 0, out: 0 },
+    PERSON: { in: 0, out: 0 },
+  });
 
   const lastTimeRef = useRef<number>(performance.now());
   const lastDetectTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   const reqAnimRef = useRef<number | null>(null);
 
-  // Fetch initial total IN/OUT counts from MySQL DB when active camera changes
+  // Fetch initial total IN/OUT counts & vehicle breakdown from MySQL DB for THIS camera
   useEffect(() => {
     let isMounted = true;
     async function fetchDbCounts() {
@@ -73,6 +93,15 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           outCountRef.current = initialOut;
           setInCount(initialIn);
           setOutCount(initialOut);
+
+          if (json.data.vehicleInOut) {
+            setCameraVehicleInOut({
+              CAR: json.data.vehicleInOut.CAR || { in: 0, out: 0 },
+              TRUCK: json.data.vehicleInOut.TRUCK || { in: 0, out: 0 },
+              BUS: json.data.vehicleInOut.BUS || { in: 0, out: 0 },
+              MOTORCYCLE: json.data.vehicleInOut.MOTORCYCLE || { in: 0, out: 0 },
+            });
+          }
         }
       } catch (err) {
         console.error('Failed to load initial camera counts from DB:', err);
@@ -83,6 +112,24 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       isMounted = false;
     };
   }, [cameraId]);
+
+  const updateCameraVehicleTally = (label: string, direction?: 'IN' | 'OUT') => {
+    const upper = label.toUpperCase();
+    if (['CAR', 'TRUCK', 'BUS', 'MOTORCYCLE', 'PERSON'].includes(upper)) {
+      if (direction) {
+        setCameraVehicleInOut((prev) => {
+          const current = prev[upper] || { in: 0, out: 0 };
+          return {
+            ...prev,
+            [upper]: {
+              ...current,
+              [direction === 'IN' ? 'in' : 'out']: (current[direction === 'IN' ? 'in' : 'out'] || 0) + 1,
+            },
+          };
+        });
+      }
+    }
+  };
 
   // 1. Load Shared TensorFlow.js Model via Singleton Service
   useEffect(() => {
@@ -108,6 +155,94 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
 
   const [retryTrigger, setRetryTrigger] = useState<number>(0);
 
+  const [isBroadcastingLocal, setIsBroadcastingLocal] = useState<boolean>(false);
+  const broadcastIntervalRef = useRef<any>(null);
+  const [hasRemoteFeed, setHasRemoteFeed] = useState<boolean>(false);
+  const [remoteImageSrc, setRemoteImageSrc] = useState<string>('');
+  const remoteImgRef = useRef<HTMLImageElement | null>(null);
+  const remoteDisplayImgRef = useRef<HTMLImageElement | null>(null);
+  const lastRemoteFrameTimeRef = useRef<number>(0);
+  const localCameraActiveRef = useRef<boolean>(false);
+
+  // Listen for incoming remote camera frames over Socket.IO (from phones / other devices)
+  useEffect(() => {
+    const targetCamId = cameraId || 'default-webcam';
+
+    // Create offscreen image element for remote decoding
+    if (!remoteImgRef.current) {
+      const img = new Image();
+      remoteImgRef.current = img;
+    }
+
+    const handleRemoteFrame = (data: { cameraId: string; image: string; timestamp: number }) => {
+      // IMPORTANT: If this tile already has a local webcam running, IGNORE remote frames
+      // This prevents phone video from overriding the laptop's own webcam tile
+      if (localCameraActiveRef.current) return;
+
+      if (data.cameraId === targetCamId && data.image) {
+        lastRemoteFrameTimeRef.current = Date.now();
+        setHasRemoteFeed(true);
+        setRemoteImageSrc(data.image);
+        setCameraError(null);
+        if (remoteImgRef.current) {
+          remoteImgRef.current.src = data.image;
+        }
+      }
+    };
+
+    // STRICTLY listen only to this specific camera ID stream to prevent feed crosstalk
+    socketService.on(`camera_frame_${targetCamId}`, handleRemoteFrame);
+
+    // Heartbeat check for remote feed timeout
+    const timeoutCheck = setInterval(() => {
+      if (Date.now() - lastRemoteFrameTimeRef.current > 6000 && lastRemoteFrameTimeRef.current > 0) {
+        setHasRemoteFeed(false);
+        setRemoteImageSrc('');
+      }
+    }, 3000);
+
+    return () => {
+      socketService.off(`camera_frame_${targetCamId}`, handleRemoteFrame);
+      clearInterval(timeoutCheck);
+    };
+  }, [cameraId]);
+
+  // Handle local camera broadcast loop
+  useEffect(() => {
+    if (!isBroadcastingLocal) {
+      if (broadcastIntervalRef.current) {
+        clearInterval(broadcastIntervalRef.current);
+        broadcastIntervalRef.current = null;
+      }
+      return;
+    }
+
+    const targetCamId = cameraId || 'default-webcam';
+    const offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = 480;
+    offscreenCanvas.height = 360;
+    const offCtx = offscreenCanvas.getContext('2d');
+
+    broadcastIntervalRef.current = setInterval(() => {
+      if (!videoRef.current || videoRef.current.readyState < 2 || !offCtx) return;
+      offCtx.drawImage(videoRef.current, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+      const frameData = offscreenCanvas.toDataURL('image/jpeg', 0.5);
+
+      socketService.emit('camera_frame_broadcast', {
+        cameraId: targetCamId,
+        image: frameData,
+        timestamp: Date.now(),
+      });
+    }, 100); // 10 FPS broadcast
+
+    return () => {
+      if (broadcastIntervalRef.current) {
+        clearInterval(broadcastIntervalRef.current);
+        broadcastIntervalRef.current = null;
+      }
+    };
+  }, [isBroadcastingLocal, cameraId]);
+
   // 2. Setup Camera Stream
   useEffect(() => {
     let currentStream: MediaStream | null = null;
@@ -116,7 +251,41 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       setCameraError(null);
       if (!videoRef.current) return;
 
-      // Clean up previous video source & tracks to avoid locking the camera hardware
+      // ===== REMOTE/PHONE CAMERA: Don't open any local stream, just wait for Socket frames =====
+      const isRemoteOnly =
+        cameraType === 'USB_PHONE' ||
+        selectedCameraUrl === 'remote-stream' ||
+        (cameraId && cameraId !== 'default-webcam' && (!selectedCameraUrl || selectedCameraUrl === 'webcam' || selectedCameraUrl === ''));
+
+      if (isRemoteOnly) {
+        // This tile is reserved for a remote device (phone/other system).
+        // Don't try to open webcam or play a URL. Socket listener will handle the feed.
+        return;
+      }
+
+      // Determine stream source type:
+      // Check stream type
+      const isRtspStream = Boolean(
+        selectedCameraUrl &&
+        (selectedCameraUrl.startsWith('rtsp://') || selectedCameraUrl.startsWith('rtsps://') || cameraType === 'IP_RTSP')
+      );
+
+      // ONLY the default-webcam or a specific secondary hardware device can open the system webcam
+      const isDefaultWebcam = (cameraId === 'default-webcam' || !cameraId) && (!selectedCameraUrl || selectedCameraUrl === 'webcam' || selectedCameraUrl === '');
+      const isSpecificSecondaryHardware = Boolean(deviceId && deviceId !== 'webcam' && deviceId.trim().length > 0);
+      const isDirectMediaFile = Boolean(
+        selectedCameraUrl &&
+        !isRtspStream &&
+        selectedCameraUrl !== 'webcam' &&
+        selectedCameraUrl !== 'remote-stream' &&
+        (selectedCameraUrl.startsWith('http://') ||
+          selectedCameraUrl.startsWith('https://') ||
+          selectedCameraUrl.startsWith('blob:') ||
+          selectedCameraUrl.endsWith('.mp4') ||
+          selectedCameraUrl.endsWith('.webm'))
+      );
+
+      // Clean up previous video source & tracks
       if (videoRef.current.srcObject) {
         const oldStream = videoRef.current.srcObject as MediaStream;
         if (oldStream.getTracks) {
@@ -126,50 +295,59 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       }
       videoRef.current.removeAttribute('src');
 
-      const isWebcamOrUsb =
-        cameraType === 'WEBCAM' ||
-        cameraType === 'USB_PHONE' ||
-        selectedCameraUrl === 'webcam' ||
-        selectedCameraUrl === '' ||
-        !selectedCameraUrl;
-
-      if (isWebcamOrUsb) {
+      if (isRtspStream) {
+        // RTSP streams are transcoded by backend FFmpeg and broadcast via Socket.IO frames
+        setCameraError(null);
+      } else if (isDefaultWebcam || isSpecificSecondaryHardware) {
+        // Grab local hardware webcam ONLY for the primary webcam tile
         const targetDeviceId = deviceId || (selectedCameraUrl !== 'webcam' && selectedCameraUrl !== '' ? selectedCameraUrl : undefined);
 
-        const constraintsToTry: MediaTrackConstraints[] = [];
+        const constraintsToTry: any[] = [];
         if (targetDeviceId && targetDeviceId.trim().length > 0) {
-          constraintsToTry.push({ deviceId: { ideal: targetDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } });
-          constraintsToTry.push({ deviceId: { ideal: targetDeviceId } });
+          constraintsToTry.push({ video: { deviceId: { exact: targetDeviceId } } });
+          constraintsToTry.push({ video: { deviceId: { ideal: targetDeviceId } } });
         }
-        constraintsToTry.push({ width: { ideal: 1280 }, height: { ideal: 720 } });
-        constraintsToTry.push({}); // fallback generic video constraint
+        constraintsToTry.push({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } });
+        constraintsToTry.push({ video: true });
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          if (!hasRemoteFeed) {
+            setCameraError('Camera blocked: Open via https://192.168.1.13:5173 and allow permissions.');
+          }
+          return;
+        }
 
         let acquired = false;
-        for (const constraint of constraintsToTry) {
+        for (const constraints of constraintsToTry) {
           try {
-            currentStream = await navigator.mediaDevices.getUserMedia({
-              video: Object.keys(constraint).length > 0 ? constraint : true,
-              audio: false,
-            });
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             if (videoRef.current) {
-              videoRef.current.srcObject = currentStream;
+              videoRef.current.srcObject = stream;
               await videoRef.current.play();
+              currentStream = stream;
+              acquired = true;
+              localCameraActiveRef.current = true; // Mark this tile as having a live local webcam
+              setIsBroadcastingLocal(true); // Automatically broadcast local webcam to all other devices on the network!
+              setCameraError(null);
+              break;
             }
-            acquired = true;
-            break;
           } catch (err) {
-            console.warn('getUserMedia constraint fallback failed:', constraint, err);
+            console.warn('getUserMedia constraint fallback failed:', constraints, err);
           }
         }
 
-        if (!acquired) {
-          setCameraError('Webcam / USB Phone Camera Access Denied, in use by another application, or disconnected.');
+        if (!acquired && !hasRemoteFeed) {
+          setCameraError('Camera is busy or permission not granted. Click "Start Local Webcam" below.');
         }
-      } else {
+      } else if (isDirectMediaFile) {
         videoRef.current.src = selectedCameraUrl;
         videoRef.current.play().catch(() => {
-          setCameraError('Unable to play CCTV stream. Verify URL or CORS setup.');
+          if (!hasRemoteFeed) {
+            setCameraError('Unable to play stream URL.');
+          }
         });
+      } else {
+        // Remote stream or Phone Camera: do not hijack the laptop webcam, wait for socket frames
       }
     }
 
@@ -187,7 +365,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         videoRef.current.srcObject = null;
       }
     };
-  }, [selectedCameraUrl, cameraType, deviceId, retryTrigger]);
+  }, [selectedCameraUrl, cameraType, deviceId, retryTrigger, cameraId]);
 
   // Reset Counters
   const handleResetCounters = () => {
@@ -195,6 +373,12 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
     outCountRef.current = 0;
     setInCount(0);
     setOutCount(0);
+    setCameraVehicleInOut({
+      CAR: { in: 0, out: 0 },
+      TRUCK: { in: 0, out: 0 },
+      BUS: { in: 0, out: 0 },
+      MOTORCYCLE: { in: 0, out: 0 },
+    });
     trackerRef.current.reset();
     onDetectionUpdate({
       counts: { car: 0, bus: 0, truck: 0, motorcycle: 0, person: 0, bicycle: 0 },
@@ -214,8 +398,14 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
     let isSubscribed = true;
 
     async function detectFrame() {
-      if (!videoRef.current || !canvasRef.current || videoRef.current.readyState !== 4) {
-        reqAnimRef.current = requestAnimationFrame(detectFrame);
+      const activeImg = remoteDisplayImgRef.current || remoteImgRef.current;
+      const isRemoteActive = (hasRemoteFeed || isRtspStream) && activeImg && activeImg.naturalWidth > 0;
+      const isLocalActive = videoRef.current && videoRef.current.readyState >= 2;
+
+      if (!isRemoteActive && !isLocalActive) {
+        if (isSubscribed) {
+          reqAnimRef.current = requestAnimationFrame(detectFrame);
+        }
         return;
       }
 
@@ -229,20 +419,23 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       }
       lastDetectTimeRef.current = now;
 
-      const video = videoRef.current;
       const canvas = canvasRef.current;
+      if (!canvas || !model) return;
       const ctx = canvas.getContext('2d');
-
       if (!ctx) return;
 
-      // Match canvas size to video resolution
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
+      let rawPredictions: any[] = [];
 
-      if (!model) return;
-
-      // Run COCO-SSD object detection
-      const rawPredictions = await model.detect(video);
+      if (isRemoteActive && activeImg) {
+        canvas.width = activeImg.naturalWidth || 640;
+        canvas.height = activeImg.naturalHeight || 480;
+        rawPredictions = await model.detect(activeImg, 30, TRAFFIC_CONFIG.AI.CONFIDENCE_THRESHOLD);
+      } else if (isLocalActive && videoRef.current) {
+        const video = videoRef.current;
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        rawPredictions = await model.detect(video, 30, TRAFFIC_CONFIG.AI.CONFIDENCE_THRESHOLD);
+      }
 
       // Filter predictions for valid classes (vehicles & pedestrians)
       const allowedClasses = TRAFFIC_CONFIG.AI.ALLOWED_CLASSES;
@@ -254,12 +447,29 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         positionPercent: linePositionPercent,
       };
 
-      const { objects, inEvents, outEvents } = trackerRef.current.update(
+      const { objects, inEvents, outEvents, detectionEvents } = trackerRef.current.update(
         predictions,
         lineConfig,
         canvas.width,
         canvas.height
       );
+
+      // Automatically record newly confirmed vehicles to DB as 'DETECTION' event
+      if (detectionEvents.length > 0) {
+        detectionEvents.forEach((evt) => {
+          updateCameraVehicleTally(evt.label);
+          createDetectionLog({
+            cameraId: cameraId || 'default-webcam',
+            vehicleType: (evt.label || 'car').toUpperCase(),
+            trackId: evt.id,
+            event: 'DETECTION',
+            confidence: evt.score || 0.95,
+            count: 1,
+            inCount: inCountRef.current,
+            outCount: outCountRef.current,
+          }).catch(() => { });
+        });
+      }
 
       // Update IN / OUT counts from new line crossing events & Sync with MySQL DB
       if (inEvents.length > 0) {
@@ -267,12 +477,13 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         const currentIn = inCountRef.current;
         setInCount(currentIn);
         inEvents.forEach((evt) => {
+          updateCameraVehicleTally(evt.label, 'IN');
           createDetectionLog({
             cameraId: cameraId || 'default-webcam',
-            vehicleType: evt.label,
+            vehicleType: (evt.label || 'car').toUpperCase(),
             trackId: evt.id,
             event: 'IN',
-            confidence: 0.95,
+            confidence: (evt as any).score || 0.95,
             count: 1,
             inCount: currentIn,
             outCount: outCountRef.current,
@@ -285,12 +496,13 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         const currentOut = outCountRef.current;
         setOutCount(currentOut);
         outEvents.forEach((evt) => {
+          updateCameraVehicleTally(evt.label, 'OUT');
           createDetectionLog({
             cameraId: cameraId || 'default-webcam',
-            vehicleType: evt.label,
+            vehicleType: (evt.label || 'car').toUpperCase(),
             trackId: evt.id,
             event: 'OUT',
-            confidence: 0.95,
+            confidence: (evt as any).score || 0.95,
             count: 1,
             inCount: inCountRef.current,
             outCount: currentOut,
@@ -477,6 +689,10 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       const activeCountVal = objects.filter((o) => o.disappeared === 0).length;
       const currentDensity = calculateTrafficDensity(activeCountVal);
 
+      // Update local mini stats state for this specific camera
+      setLiveCounts(currentCounts);
+      setActiveVehicleCount(activeCountVal);
+
       // Update Parent Analytics (includes IN count, OUT count, active counts, and crossing events)
       onDetectionUpdate({
         counts: currentCounts,
@@ -485,6 +701,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         activeCount: activeCountVal,
         inEvents,
         outEvents,
+        detectionEvents,
         log: detectedLogs,
       });
 
@@ -538,29 +755,16 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>CCTV Stream & Virtual Line Tracker</h2>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {hasRemoteFeed && (
+            <span style={{ fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399' }}></span>
+              Remote Feed
+            </span>
+          )}
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'rgba(15, 23, 42, 0.8)', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
             FPS: <strong style={{ color: '#10b981' }}>{fps}</strong>
           </div>
-
-          <button
-            onClick={() => setIsDetecting(!isDetecting)}
-            style={{
-              background: isDetecting ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-              color: isDetecting ? '#ef4444' : '#10b981',
-              border: '1px solid currentColor',
-              padding: '6px 12px',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '0.85rem',
-            }}
-          >
-            {isDetecting ? <Pause size={14} /> : <Play size={14} />}
-            {isDetecting ? 'Pause AI' : 'Resume AI'}
-          </button>
         </div>
       </div>
 
@@ -729,8 +933,33 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           crossOrigin="anonymous"
           muted
           playsInline
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: (hasRemoteFeed || isRtspStream) ? 'none' : 'block',
+          }}
         />
+
+        {/* Live Stream Image for RTSP or Remote Device */}
+        {(hasRemoteFeed || isRtspStream) && (
+          <img
+            ref={remoteDisplayImgRef}
+            src={isRtspStream ? mjpegStreamUrl : remoteImageSrc}
+            alt="Live Camera Feed"
+            crossOrigin="anonymous"
+            onLoad={() => {
+              setHasRemoteFeed(true);
+              setCameraError(null);
+            }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              display: 'block',
+            }}
+          />
+        )}
 
         <canvas
           ref={canvasRef}
@@ -743,6 +972,28 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
             pointerEvents: 'none',
           }}
         />
+
+        {/* Waiting for Remote Feed Placeholder */}
+        {!hasRemoteFeed && cameraId !== 'default-webcam' && (!selectedCameraUrl || selectedCameraUrl === 'webcam' || selectedCameraUrl === 'remote-stream') && !cameraError && (
+          <div style={{ position: 'absolute', textAlign: 'center', padding: '1.2rem', color: 'var(--text-secondary)', zIndex: 5 }}>
+            <Radio size={28} color="#60a5fa" style={{ margin: '0 auto 8px', animation: 'pulse 1.5s infinite' }} />
+            <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Waiting for Remote Device Feed</h4>
+            <p style={{ fontSize: '0.78rem', maxWidth: '280px', margin: '0 auto', lineHeight: 1.4 }}>
+              Open <span style={{ color: '#60a5fa' }}>https://192.168.1.13:5173</span> on phone/other system and start <strong>Phone Broadcaster</strong> to stream here.
+            </p>
+          </div>
+        )}
+
+        {/* Waiting for RTSP Camera Stream Placeholder */}
+        {!hasRemoteFeed && isRtspStream && !cameraError && (
+          <div style={{ position: 'absolute', textAlign: 'center', padding: '1.2rem', color: 'var(--text-secondary)', zIndex: 5 }}>
+            <Radio size={28} color="#10b981" style={{ margin: '0 auto 8px', animation: 'pulse 1.5s infinite' }} />
+            <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Connecting to CP PLUS Live Stream...</h4>
+            <p style={{ fontSize: '0.78rem', maxWidth: '320px', margin: '0 auto', lineHeight: 1.4 }}>
+              Receiving live stream from camera (<strong>192.168.1.23</strong>).
+            </p>
+          </div>
+        )}
 
         {cameraError && (
           <div
@@ -783,6 +1034,148 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
             </button>
           </div>
         )}
+      </div>
+
+      {/* Mini Stats Bar directly beneath this Camera (Chhote me live counts for THIS camera) */}
+      <div
+        style={{
+          marginTop: '10px',
+          background: 'rgba(15, 23, 42, 0.85)',
+          border: '1px solid rgba(59, 130, 246, 0.3)',
+          borderRadius: '10px',
+          padding: '8px 14px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '8px',
+        }}
+      >
+        {/* Left: IN & OUT counts for THIS specific camera */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>This Camera:</span>
+          <span
+            style={{
+              background: 'rgba(15, 23, 42, 0.65)',
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              padding: '3px 10px',
+              borderRadius: '6px',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginRight: '2px' }}>IN/OUT:</span>
+            <strong style={{ color: '#10b981' }}>{_inCount}</strong>
+            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
+            <strong style={{ color: '#ef4444' }}>{_outCount}</strong>
+          </span>
+          <span
+            style={{
+              background: 'rgba(59, 130, 246, 0.15)',
+              border: '1px solid rgba(59, 130, 246, 0.4)',
+              color: '#60a5fa',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+            }}
+          >
+            Active: {activeVehicleCount}
+          </span>
+        </div>
+
+        {/* Right: Vehicle Count for THIS specific camera (CAR, TRUCK, BUS, MOTORCYCLE IN / OUT) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <span
+            style={{
+              fontSize: '0.76rem',
+              background: 'rgba(59, 130, 246, 0.15)',
+              border: '1px solid rgba(59, 130, 246, 0.35)',
+              color: '#93c5fd',
+              padding: '2px 8px',
+              borderRadius: '5px',
+            }}
+          >
+            🚗 Car:{' '}
+            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.CAR?.in || 0}</strong>
+            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
+            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.CAR?.out || 0}</strong>
+            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
+          </span>
+
+          <span
+            style={{
+              fontSize: '0.76rem',
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#fca5a5',
+              padding: '2px 8px',
+              borderRadius: '5px',
+            }}
+          >
+            🚚 Truck:{' '}
+            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.TRUCK?.in || 0}</strong>
+            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
+            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.TRUCK?.out || 0}</strong>
+            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
+          </span>
+
+          <span
+            style={{
+              fontSize: '0.76rem',
+              background: 'rgba(245, 158, 11, 0.15)',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              color: '#fcd34d',
+              padding: '2px 8px',
+              borderRadius: '5px',
+            }}
+          >
+            🚌 Bus:{' '}
+            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.BUS?.in || 0}</strong>
+            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
+            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.BUS?.out || 0}</strong>
+            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
+          </span>
+
+          <span
+            style={{
+              fontSize: '0.76rem',
+              background: 'rgba(139, 92, 246, 0.15)',
+              border: '1px solid rgba(139, 92, 246, 0.35)',
+              color: '#c4b5fd',
+              padding: '2px 8px',
+              borderRadius: '5px',
+            }}
+          >
+            🏍️ Bike:{' '}
+            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.MOTORCYCLE?.in || 0}</strong>
+            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
+            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.MOTORCYCLE?.out || 0}</strong>
+            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
+          </span>
+
+          {activeVehicleCount > 0 && Object.values(liveCounts).some((c) => c > 0) && (
+            <span
+              style={{
+                fontSize: '0.72rem',
+                color: '#10b981',
+                background: 'rgba(16, 185, 129, 0.1)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+              }}
+            >
+              ● In Frame:{' '}
+              {Object.entries(liveCounts)
+                .filter(([, c]) => c > 0)
+                .map(([k, c]) => `${k}:${c}`)
+                .join(', ')}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

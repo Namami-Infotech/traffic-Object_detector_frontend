@@ -270,6 +270,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                 fontFamily: 'inherit',
               }}
             >
+              <option value="USB_PHONE">📱 Remote Mobile Phone / Other System Live Feed (Wireless Stream)</option>
               <option value="HIKVISION">📹 Hikvision IP / Bullet / Dome CCTV Camera (RTSP)</option>
               <option value="CPPLUS_DAHUA">📹 CP Plus / Dahua IP CCTV Camera (RTSP)</option>
               <option value="DVR_ANALOG">📼 Analog DVR / NVR Multi-Channel RTSP Stream</option>
@@ -331,10 +332,10 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                   cameraType === 'HIKVISION'
                     ? 'rtsp://admin:password@192.168.1.64:554/Streaming/Channels/101'
                     : cameraType === 'CPPLUS_DAHUA'
-                    ? 'rtsp://admin:password@192.168.1.250:554/cam/realmonitor?channel=1&subtype=0'
-                    : cameraType === 'DVR_ANALOG'
-                    ? 'rtsp://admin:password@192.168.1.10:554/Streaming/Channels/201'
-                    : 'rtsp://admin:123456@192.168.1.100:554/live/ch0'
+                      ? 'rtsp://admin:password@192.168.1.250:554/cam/realmonitor?channel=1&subtype=0'
+                      : cameraType === 'DVR_ANALOG'
+                        ? 'rtsp://admin:password@192.168.1.10:554/Streaming/Channels/201'
+                        : 'rtsp://admin:123456@192.168.1.100:554/live/ch0'
                 }
                 value={rtspUrl}
                 onChange={(e) => setRtspUrl(e.target.value)}

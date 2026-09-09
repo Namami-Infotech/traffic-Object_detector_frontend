@@ -6,15 +6,27 @@ class SocketService {
 
   connect(): Socket {
     if (!this.socket) {
-      this.socket = io(API_BASE_URL, {
-        autoConnect: true,
+      const url =
+        API_BASE_URL && API_BASE_URL.length > 0
+          ? API_BASE_URL
+          : typeof window !== 'undefined'
+            ? window.location.origin
+            : '';
+
+      this.socket = io(url, {
+        transports: ['polling', 'websocket'],
         reconnection: true,
-        reconnectionAttempts: 10,
-        reconnectionDelay: 2000,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        timeout: 10000,
       });
 
       this.socket.on('connect', () => {
-        console.log('⚡ Socket.IO Connected to Backend Server:', this.socket?.id);
+        console.log('⚡ Socket.IO Connected to Server:', this.socket?.id);
+      });
+
+      this.socket.on('connect_error', (err) => {
+        console.warn('⚠️ Socket.IO Connection Error:', err.message);
       });
 
       this.socket.on('disconnect', (reason) => {
@@ -25,13 +37,13 @@ class SocketService {
   }
 
   getSocket(): Socket | null {
+    if (!this.socket) this.connect();
     return this.socket;
   }
 
   emit(event: string, data: any) {
-    if (this.socket && this.socket.connected) {
-      this.socket.emit(event, data);
-    }
+    if (!this.socket) this.connect();
+    this.socket?.emit(event, data);
   }
 
   on(event: string, callback: (data: any) => void) {
@@ -45,3 +57,4 @@ class SocketService {
 }
 
 export const socketService = new SocketService();
+

@@ -3,6 +3,7 @@ import { Car, Bus, Truck, Bike, Users, Activity, ArrowDownRight, ArrowUpRight, S
 
 interface TrafficAnalyticsProps {
   counts: Record<string, number>;
+  vehicleInOut?: Record<string, { in: number; out: number; total?: number }>;
   inCount?: number;
   outCount?: number;
   activeCount?: number;
@@ -10,17 +11,18 @@ interface TrafficAnalyticsProps {
 
 export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
   counts,
+  vehicleInOut,
   inCount = 0,
   outCount = 0,
   activeCount = 0,
 }) => {
   const totalVehicles =
-    (counts.car || 0) +
-    (counts.bus || 0) +
-    (counts.truck || 0) +
-    (counts.motorcycle || 0);
+    (counts.car || counts.CAR || 0) +
+    (counts.bus || counts.BUS || 0) +
+    (counts.truck || counts.TRUCK || 0) +
+    (counts.motorcycle || counts.MOTORCYCLE || 0);
 
-  const totalInFrame = activeCount || totalVehicles + (counts.person || 0);
+  const totalInFrame = activeCount || totalVehicles + (counts.person || counts.PERSON || 0);
 
   // Traffic density calculation
   let densityLabel = 'Low Traffic';
@@ -35,22 +37,57 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
   }
 
   const statCards = [
-    { label: 'Cars', count: counts.car || 0, icon: Car, color: '#10b981' },
-    { label: 'Buses', count: counts.bus || 0, icon: Bus, color: '#f59e0b' },
-    { label: 'Trucks', count: counts.truck || 0, icon: Truck, color: '#ef4444' },
-    { label: 'Motorcycles', count: counts.motorcycle || 0, icon: Bike, color: '#8b5cf6' },
-    { label: 'Pedestrians', count: counts.person || 0, icon: Users, color: '#06b6d4' },
+    {
+      label: 'Cars',
+      in: vehicleInOut?.CAR?.in || 0,
+      out: vehicleInOut?.CAR?.out || 0,
+      total: counts.CAR || counts.car || (vehicleInOut?.CAR?.in || 0) + (vehicleInOut?.CAR?.out || 0),
+      icon: Car,
+      color: '#10b981',
+    },
+    {
+      label: 'Buses',
+      in: vehicleInOut?.BUS?.in || 0,
+      out: vehicleInOut?.BUS?.out || 0,
+      total: counts.BUS || counts.bus || (vehicleInOut?.BUS?.in || 0) + (vehicleInOut?.BUS?.out || 0),
+      icon: Bus,
+      color: '#f59e0b',
+    },
+    {
+      label: 'Trucks',
+      in: vehicleInOut?.TRUCK?.in || 0,
+      out: vehicleInOut?.TRUCK?.out || 0,
+      total: counts.TRUCK || counts.truck || (vehicleInOut?.TRUCK?.in || 0) + (vehicleInOut?.TRUCK?.out || 0),
+      icon: Truck,
+      color: '#ef4444',
+    },
+    {
+      label: 'Motorcycles',
+      in: vehicleInOut?.MOTORCYCLE?.in || 0,
+      out: vehicleInOut?.MOTORCYCLE?.out || 0,
+      total: counts.MOTORCYCLE || counts.motorcycle || (vehicleInOut?.MOTORCYCLE?.in || 0) + (vehicleInOut?.MOTORCYCLE?.out || 0),
+      icon: Bike,
+      color: '#8b5cf6',
+    },
+    {
+      label: 'Pedestrians',
+      in: vehicleInOut?.PERSON?.in || 0,
+      out: vehicleInOut?.PERSON?.out || 0,
+      total: counts.PERSON || counts.person || (vehicleInOut?.PERSON?.in || 0) + (vehicleInOut?.PERSON?.out || 0),
+      icon: Users,
+      color: '#06b6d4',
+    },
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      
+
       {/* 1. VIRTUAL LINE IN / OUT SUMMARY CARDS */}
-      <div className="glass-panel" style={{ padding: '1.2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
+      <div className="glass-panel" style={{ padding: '1.2rem', marginTop:'3rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem'  }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Virtual Line Crossing Stats
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc' }}>
+              📊 Total Traffic Stats (All Cameras)
             </span>
             <span
               style={{
@@ -74,9 +111,35 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
           </div>
         </div>
 
+        {/* Global IN / OUT Combined Ratio Banner */}
+        <div
+          style={{
+            marginBottom: '0.8rem',
+            padding: '8px 14px',
+            borderRadius: '8px',
+            background: 'rgba(255, 255, 255, 0.04)',
+            border: '1px solid var(--border-color)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+            All Cameras Total:
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '1.15rem', fontWeight: 800 }}>
+            <span style={{ color: '#10b981' }}>{inCount}</span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>/</span>
+            <span style={{ color: '#ef4444' }}>{outCount}</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, marginLeft: '4px' }}>
+              (IN / OUT)
+            </span>
+          </div>
+        </div>
+
         {/* IN / OUT Big Counters Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.8rem' }}>
-          
+
           {/* IN Count Card */}
           <div
             style={{
@@ -188,9 +251,16 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
               >
                 <Icon size={18} />
               </div>
-              <div style={{ fontSize: '1.2rem', fontWeight: 700 }}>{item.count}</div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>
+                <span style={{ color: '#10b981' }}>{item.in}</span>
+                <span style={{ color: 'var(--text-secondary)', margin: '0 4px' }}>/</span>
+                <span style={{ color: '#ef4444' }}>{item.out}</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 600 }}>
                 {item.label}
+              </div>
+              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', opacity: 0.8 }}>
+                (IN / OUT)
               </div>
             </div>
           );

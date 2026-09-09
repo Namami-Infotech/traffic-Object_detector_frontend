@@ -6,12 +6,12 @@ import { MultiCameraGrid } from './components/MultiCameraGrid';
 import { TrafficAnalytics } from './components/TrafficAnalytics';
 import { CameraFormModal } from './components/CameraFormModal';
 import { DetectionHistoryTable } from './components/DetectionHistoryTable';
-import { Radio, Grid, Layout } from 'lucide-react';
-
-import { getCameras } from './routes';
+import { CameraBroadcaster } from './components/CameraBroadcaster';
+import { getCameras, getAnalytics } from './routes';
 import { socketService } from './services/socketService';
 
 export function App() {
+  const [appMode, setAppMode] = useState<'DASHBOARD' | 'BROADCASTER'>('DASHBOARD');
   const [cameras, setCameras] = useState<any[]>([
     {
       id: 'default-webcam',
@@ -26,7 +26,7 @@ export function App() {
   ]);
 
   const [activeCameraId, setActiveCameraId] = useState<string>('default-webcam');
-  const [viewMode, setViewMode] = useState<'GRID' | 'SINGLE'>('GRID');
+  const [viewMode] = useState<'GRID' | 'SINGLE'>('GRID');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isAiLoading, setIsAiLoading] = useState<boolean>(true);
 
@@ -36,6 +36,61 @@ export function App() {
   const [cameraActiveMap, setCameraActiveMap] = useState<Record<string, number>>({});
   const [cameraLiveCountsMap, setCameraLiveCountsMap] = useState<Record<string, Record<string, number>>>({});
   const [liveLogs, setLiveLogs] = useState<any[]>([]);
+
+  // Global All-Cameras DB Synced Totals for CAR, TRUCK, BUS, MOTORCYCLE, IN, OUT
+  const [dbGlobalTotals, setDbGlobalTotals] = useState<{
+    totalIn: number;
+    totalOut: number;
+    summary: Record<string, number>;
+  }>({
+    totalIn: 0,
+    totalOut: 0,
+    summary: { CAR: 0, TRUCK: 0, BUS: 0, MOTORCYCLE: 0 },
+  });
+
+  const [dbGlobalVehicleInOut, setDbGlobalVehicleInOut] = useState<
+    Record<string, { in: number; out: number; total?: number }>
+  >({
+    CAR: { in: 0, out: 0 },
+    TRUCK: { in: 0, out: 0 },
+    BUS: { in: 0, out: 0 },
+    MOTORCYCLE: { in: 0, out: 0 },
+    PERSON: { in: 0, out: 0 },
+  });
+
+  const [liveVehicleInOut, setLiveVehicleInOut] = useState<
+    Record<string, { in: number; out: number }>
+  >({
+    CAR: { in: 0, out: 0 },
+    TRUCK: { in: 0, out: 0 },
+    BUS: { in: 0, out: 0 },
+    MOTORCYCLE: { in: 0, out: 0 },
+    PERSON: { in: 0, out: 0 },
+  });
+
+  const fetchGlobalDbAnalytics = async () => {
+    try {
+      const res = await getAnalytics();
+      if (res.success && res.data) {
+        setDbGlobalTotals({
+          totalIn: res.data.totalIn || 0,
+          totalOut: res.data.totalOut || 0,
+          summary: res.data.summary || {},
+        });
+        if (res.data.vehicleInOut) {
+          setDbGlobalVehicleInOut(res.data.vehicleInOut);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch global DB analytics:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchGlobalDbAnalytics();
+    const interval = setInterval(fetchGlobalDbAnalytics, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Initialize Socket.IO connection
   useEffect(() => {
@@ -54,8 +109,13 @@ export function App() {
           setCameras((prev) => {
             const ids = new Set(prev.map((c) => c.id));
             const newCams = json.data.filter((c: any) => !ids.has(c.id));
-            return [...prev, ...newCams];
+            const combined = [...newCams, ...prev];
+            return combined;
           });
+          const ipCam = json.data.find((c: any) => c.rtspUrl && c.rtspUrl.includes('192.168.1.23'));
+          if (ipCam) {
+            setActiveCameraId(ipCam.id);
+          }
         }
       } catch (err) {
         console.log('Backend server using local camera defaults.');
@@ -85,8 +145,34 @@ export function App() {
 
     const newEntries: any[] = [];
 
+    if (data.detectionEvents && data.detectionEvents.length > 0) {
+      data.detectionEvents.forEach((evt) => {
+        newEntries.push({
+          id: `det-${camId}-${evt.id}-${evt.timestamp}`,
+          cameraId: camId,
+          cameraName: cameraName,
+          camera: { cameraName: cameraName, location: locationName, lane: camObj?.lane },
+          vehicleType: evt.label.toUpperCase(),
+          trackId: evt.id,
+          event: 'DETECTION',
+          confidence: (evt as any).score || 0.94,
+          count: 1,
+          detectedAt: new Date(evt.timestamp).toISOString(),
+        });
+      });
+    }
+
     if (data.inEvents && data.inEvents.length > 0) {
       data.inEvents.forEach((evt) => {
+        const v = (evt.label || 'car').toUpperCase();
+        setLiveVehicleInOut((prev) => {
+          const current = (prev as any)[v] || { in: 0, out: 0 };
+          return {
+            ...prev,
+            [v]: { ...current, in: current.in + 1 },
+          };
+        });
+
         newEntries.push({
           id: `in-${camId}-${evt.id}-${evt.timestamp}`,
           cameraId: camId,
@@ -95,7 +181,7 @@ export function App() {
           vehicleType: evt.label.toUpperCase(),
           trackId: evt.id,
           event: 'IN',
-          confidence: 0.95,
+          confidence: (evt as any).score || 0.95,
           count: 1,
           detectedAt: new Date(evt.timestamp).toISOString(),
         });
@@ -104,6 +190,15 @@ export function App() {
 
     if (data.outEvents && data.outEvents.length > 0) {
       data.outEvents.forEach((evt) => {
+        const v = (evt.label || 'car').toUpperCase();
+        setLiveVehicleInOut((prev) => {
+          const current = (prev as any)[v] || { in: 0, out: 0 };
+          return {
+            ...prev,
+            [v]: { ...current, out: current.out + 1 },
+          };
+        });
+
         newEntries.push({
           id: `out-${camId}-${evt.id}-${evt.timestamp}`,
           cameraId: camId,
@@ -112,7 +207,7 @@ export function App() {
           vehicleType: evt.label.toUpperCase(),
           trackId: evt.id,
           event: 'OUT',
-          confidence: 0.92,
+          confidence: (evt as any).score || 0.92,
           count: 1,
           detectedAt: new Date(evt.timestamp).toISOString(),
         });
@@ -123,8 +218,11 @@ export function App() {
       setLiveLogs((prev) => {
         const ids = new Set(prev.map((l) => l.id));
         const filtered = newEntries.filter((e) => !ids.has(e.id));
-        return [...filtered, ...prev].slice(0, 50);
+        return [...filtered, ...prev].slice(0, 500);
       });
+      fetchGlobalDbAnalytics();
+      setTimeout(fetchGlobalDbAnalytics, 600);
+      setTimeout(fetchGlobalDbAnalytics, 1500);
     }
   };
 
@@ -154,6 +252,30 @@ export function App() {
     displayLiveCounts = aggregatedClassCounts;
   }
 
+  // Real-time merged vehicle IN / OUT: combines saved MySQL counts with instant live session counts
+  const mergedVehicleInOut: Record<string, { in: number; out: number; total?: number }> = {
+    CAR: {
+      in: Math.max(dbGlobalVehicleInOut.CAR?.in || 0, liveVehicleInOut.CAR?.in || 0),
+      out: Math.max(dbGlobalVehicleInOut.CAR?.out || 0, liveVehicleInOut.CAR?.out || 0),
+    },
+    TRUCK: {
+      in: Math.max(dbGlobalVehicleInOut.TRUCK?.in || 0, liveVehicleInOut.TRUCK?.in || 0),
+      out: Math.max(dbGlobalVehicleInOut.TRUCK?.out || 0, liveVehicleInOut.TRUCK?.out || 0),
+    },
+    BUS: {
+      in: Math.max(dbGlobalVehicleInOut.BUS?.in || 0, liveVehicleInOut.BUS?.in || 0),
+      out: Math.max(dbGlobalVehicleInOut.BUS?.out || 0, liveVehicleInOut.BUS?.out || 0),
+    },
+    MOTORCYCLE: {
+      in: Math.max(dbGlobalVehicleInOut.MOTORCYCLE?.in || 0, liveVehicleInOut.MOTORCYCLE?.in || 0),
+      out: Math.max(dbGlobalVehicleInOut.MOTORCYCLE?.out || 0, liveVehicleInOut.MOTORCYCLE?.out || 0),
+    },
+    PERSON: {
+      in: Math.max(dbGlobalVehicleInOut.PERSON?.in || 0, liveVehicleInOut.PERSON?.in || 0),
+      out: Math.max(dbGlobalVehicleInOut.PERSON?.out || 0, liveVehicleInOut.PERSON?.out || 0),
+    },
+  };
+
   return (
     <div style={{ minHeight: '100vh', paddingBottom: '2rem' }}>
       {/* Header Navigation */}
@@ -161,120 +283,59 @@ export function App() {
         onOpenAddCamera={() => setIsModalOpen(true)}
         activeCameraName={activeCamera.cameraName}
         isAiLoading={isAiLoading}
+        appMode={appMode}
+        onToggleAppMode={(mode) => setAppMode(mode)}
       />
 
-      <main className="app-container">
-        {/* Top Control Bar: View Mode Switcher (GRID vs SINGLE) & Focus Selector */}
-        <div className="glass-panel control-bar-panel">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', fontWeight: 500 }}>View Mode:</span>
-            <button
-              onClick={() => setViewMode('GRID')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: viewMode === 'GRID' ? '1px solid #10b981' : '1px solid var(--border-color)',
-                background: viewMode === 'GRID' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(15, 23, 42, 0.6)',
-                color: viewMode === 'GRID' ? '#34d399' : 'var(--text-secondary)',
-                fontWeight: viewMode === 'GRID' ? 600 : 400,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.85rem',
-              }}
-            >
-              <Grid size={15} /> Multi-Camera Grid
-            </button>
+      {appMode === 'BROADCASTER' ? (
+        <main className="app-container" style={{ marginTop: '1.5rem' }}>
+          <CameraBroadcaster onBackToDashboard={() => setAppMode('DASHBOARD')} />
+        </main>
+      ) : (
+        <main className="app-container">
+          {/* Top Control Bar: View Mode Switcher (GRID vs SINGLE) & Focus Selector */}
+          
 
-            <button
-              onClick={() => setViewMode('SINGLE')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '8px',
-                border: viewMode === 'SINGLE' ? '1px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                background: viewMode === 'SINGLE' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(15, 23, 42, 0.6)',
-                color: viewMode === 'SINGLE' ? '#60a5fa' : 'var(--text-secondary)',
-                fontWeight: viewMode === 'SINGLE' ? 600 : 400,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.85rem',
-              }}
-            >
-              <Layout size={15} /> Single Focus View
-            </button>
-          </div>
+          {/* Responsive Grid: Left (CCTV Video Stream Grid / Single) | Right (Realtime Analytics) */}
+          <div className="app-main-grid">
 
-          {/* Camera Selector in SINGLE mode */}
-          {viewMode === 'SINGLE' && (
-            <div className="camera-chips-scroll">
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                <Radio size={16} color="var(--accent-blue)" />
-                Focus Feed:
-              </span>
-              {cameras.map((cam) => (
-                <button
-                  key={cam.id}
-                  onClick={() => setActiveCameraId(cam.id)}
-                  style={{
-                    padding: '6px 14px',
-                    borderRadius: '8px',
-                    border: activeCameraId === cam.id ? '1px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                    background: activeCameraId === cam.id ? 'rgba(59, 130, 246, 0.2)' : 'rgba(15, 23, 42, 0.6)',
-                    color: activeCameraId === cam.id ? '#60a5fa' : 'var(--text-secondary)',
-                    fontWeight: activeCameraId === cam.id ? 600 : 400,
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {cam.cameraName}
-                </button>
-              ))}
+            {/* Left Column: Live CCTV Feed(s) */}
+            <div>
+              {viewMode === 'GRID' ? (
+                <MultiCameraGrid
+                  cameras={cameras}
+                  onDetectionUpdate={(camId, data) => handleDetectionUpdate(camId, data)}
+                  onModelLoaded={(loaded) => setIsAiLoading(!loaded)}
+                />
+              ) : (
+                <CctvViewer
+                  selectedCameraUrl={activeCamera.rtspUrl}
+                  cameraType={activeCamera.cameraType || 'WEBCAM'}
+                  cameraId={activeCamera.id}
+                  onDetectionUpdate={(data) => handleDetectionUpdate(activeCamera.id, data)}
+                  onModelLoaded={(loaded) => setIsAiLoading(!loaded)}
+                />
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Responsive Grid: Left (CCTV Video Stream Grid / Single) | Right (Realtime Analytics) */}
-        <div className="app-main-grid">
+            {/* Right Column: Traffic Analytics Stats (All Cameras combined from MySQL DB) */}
+            <div>
+              <TrafficAnalytics
+                counts={{ ...displayLiveCounts, ...dbGlobalTotals.summary }}
+                vehicleInOut={mergedVehicleInOut}
+                inCount={Math.max(displayInCount, dbGlobalTotals.totalIn)}
+                outCount={Math.max(displayOutCount, dbGlobalTotals.totalOut)}
+                activeCount={displayActiveCount}
+              />
+            </div>
 
-          {/* Left Column: Live CCTV Feed(s) */}
-          <div>
-            {viewMode === 'GRID' ? (
-              <MultiCameraGrid
-                cameras={cameras}
-                onDetectionUpdate={(camId, data) => handleDetectionUpdate(camId, data)}
-                onModelLoaded={(loaded) => setIsAiLoading(!loaded)}
-              />
-            ) : (
-              <CctvViewer
-                selectedCameraUrl={activeCamera.rtspUrl}
-                cameraType={activeCamera.cameraType || 'WEBCAM'}
-                cameraId={activeCamera.id}
-                onDetectionUpdate={(data) => handleDetectionUpdate(activeCamera.id, data)}
-                onModelLoaded={(loaded) => setIsAiLoading(!loaded)}
-              />
-            )}
           </div>
 
-          {/* Right Column: Traffic Analytics Stats */}
-          <div>
-            <TrafficAnalytics
-              counts={displayLiveCounts}
-              inCount={displayInCount}
-              outCount={displayOutCount}
-              activeCount={displayActiveCount}
-            />
-          </div>
+          {/* Bottom Section: Prisma MySQL Synced Database Logs */}
+          <DetectionHistoryTable liveLogs={liveLogs} onClearLogs={() => setLiveLogs([])} />
 
-        </div>
-
-        {/* Bottom Section: Prisma MySQL Synced Database Logs */}
-        <DetectionHistoryTable liveLogs={liveLogs} onClearLogs={() => setLiveLogs([])} />
-
-      </main>
+        </main>
+      )}
 
       {/* Add Camera Modal Form */}
       <CameraFormModal
@@ -287,3 +348,4 @@ export function App() {
 }
 
 export default App;
+
