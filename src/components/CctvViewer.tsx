@@ -163,6 +163,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
   const remoteImgRef = useRef<HTMLImageElement | null>(null);
   const remoteDisplayImgRef = useRef<HTMLImageElement | null>(null);
   const lastRemoteFrameTimeRef = useRef<number>(0);
+  const lastRestartRequestTimeRef = useRef<number>(0);
   const localCameraActiveRef = useRef<boolean>(false);
 
   // Listen for incoming remote camera frames over Socket.IO (from phones / other devices)
@@ -196,9 +197,18 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
 
     // Heartbeat check for remote feed timeout
     const timeoutCheck = setInterval(() => {
-      if (Date.now() - lastRemoteFrameTimeRef.current > 6000 && lastRemoteFrameTimeRef.current > 0) {
-        setHasRemoteFeed(false);
-        setRemoteImageSrc('');
+      const elapsed = Date.now() - lastRemoteFrameTimeRef.current;
+      if (lastRemoteFrameTimeRef.current > 0 && elapsed > 8000) {
+        if (isRtspStream && Date.now() - lastRestartRequestTimeRef.current > 12000) {
+          lastRestartRequestTimeRef.current = Date.now();
+          // Request backend to refresh/restart the stream worker if stalled
+          socketService.emit('request_camera_restart', { cameraId: targetCamId });
+        }
+        // Only completely clear the image if feed is dead for > 15 seconds
+        if (elapsed > 15000) {
+          setHasRemoteFeed(false);
+          setRemoteImageSrc('');
+        }
       }
     }, 3000);
 
@@ -206,7 +216,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       socketService.off(`camera_frame_${targetCamId}`, handleRemoteFrame);
       clearInterval(timeoutCheck);
     };
-  }, [cameraId]);
+  }, [cameraId, isRtspStream]);
 
   // Handle local camera broadcast loop
   useEffect(() => {
@@ -990,9 +1000,32 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           <div style={{ position: 'absolute', textAlign: 'center', padding: '1.2rem', color: 'var(--text-secondary)', zIndex: 5 }}>
             <Radio size={28} color="#10b981" style={{ margin: '0 auto 8px', animation: 'pulse 1.5s infinite' }} />
             <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Connecting to CP PLUS Live Stream...</h4>
-            <p style={{ fontSize: '0.78rem', maxWidth: '320px', margin: '0 auto', lineHeight: 1.4 }}>
+            <p style={{ fontSize: '0.78rem', maxWidth: '320px', margin: '0 auto 10px', lineHeight: 1.4 }}>
               Receiving live stream from camera (<strong>192.168.1.23</strong>).
             </p>
+            <button
+              onClick={() => {
+                const targetId = cameraId || 'dfdbafbb-28d3-4cbe-824f-c4752868f6db';
+                socketService.emit('request_camera_restart', { cameraId: targetId });
+                setRetryTrigger((prev) => prev + 1);
+              }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.2)',
+                border: '1px solid #10b981',
+                color: '#34d399',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                margin: '0 auto',
+              }}
+            >
+              🔄 Reconnect Stream Now
+            </button>
           </div>
         )}
 
@@ -1019,6 +1052,10 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
               onClick={() => {
                 setCameraError(null);
                 setRetryTrigger((prev) => prev + 1);
+                if (isRtspStream) {
+                  const targetId = cameraId || 'dfdbafbb-28d3-4cbe-824f-c4752868f6db';
+                  socketService.emit('request_camera_restart', { cameraId: targetId });
+                }
               }}
               style={{
                 padding: '8px 16px',
