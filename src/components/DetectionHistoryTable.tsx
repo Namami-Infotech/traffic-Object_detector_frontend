@@ -15,6 +15,7 @@ import {
   Search,
   Filter,
 } from 'lucide-react';
+
 import { getAnalytics, clearDetectionLogs } from '../routes';
 
 export interface DetectionLogEntry {
