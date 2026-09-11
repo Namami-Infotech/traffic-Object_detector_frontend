@@ -3,10 +3,13 @@ export interface TrackedObject {
   label: string;
   score: number;
   bbox: [number, number, number, number]; // [x, y, width, height]
+  prevBbox?: [number, number, number, number]; // Previous frame bbox for full body clearance tracking
   centroid: [number, number]; // [cx, cy]
   trajectory: Array<[number, number]>;
   disappeared: number;
   isStationary: boolean;
+  isCrossing?: boolean; // True when bounding box intersects/straddles the virtual line
+  fullBodyCrossed?: boolean; // True when entire body has cleared the line
   crossedIn: boolean;
   crossedOut: boolean;
   lastCrossedTimestamp?: number;
@@ -25,6 +28,9 @@ export interface LineCrossingEvent {
   score: number;
   timestamp: number;
 }
+
+// Supported countable classes requested by user: CAR, BUS, MOTORCYCLE, PERSON, TRUCK (and bicycle)
+export const COUNTABLE_CLASSES: string[] = ['car', 'bus', 'motorcycle', 'person', 'truck', 'bicycle'];
 
 export class CentroidTracker {
   private nextObjectId: number = 1;
@@ -54,6 +60,8 @@ export class CentroidTracker {
       this.trackedObjects.forEach((obj) => {
         obj.crossedIn = false;
         obj.crossedOut = false;
+        obj.isCrossing = false;
+        obj.fullBodyCrossed = false;
       });
     }
     this.lastLineConfigKey = currentLineKey;
@@ -146,17 +154,20 @@ export class CentroidTracker {
       const obj = this.trackedObjects.get(objId)!;
       const newInput = inputCentroids[pair.inputIdx];
 
-      // Store previous centroid for line crossing check
+      // Store previous bounding box and centroid for full-body line crossing detection
+      const prevBbox = obj.bbox;
+      const currBbox = newInput.bbox;
       const [prevX, prevY] = obj.centroid;
       const [currX, currY] = newInput.centroid;
 
       // Update object state
-      obj.bbox = newInput.bbox;
+      obj.prevBbox = prevBbox;
+      obj.bbox = currBbox;
       obj.centroid = newInput.centroid;
       obj.score = Math.max(obj.score, newInput.score);
       obj.disappeared = 0;
       obj.trajectory.push([currX, currY]);
-      if (obj.trajectory.length > 20) {
+      if (obj.trajectory.length > 25) {
         obj.trajectory.shift();
       }
 
@@ -166,22 +177,27 @@ export class CentroidTracker {
       }
       obj.labelVotes[newInput.label] = (obj.labelVotes[newInput.label] || 0) + 1;
 
-      // VEHICLE CLASS RESOLUTION:
-      // If any vehicle class is observed (car, truck, bus, motorcycle, bicycle),
-      // prioritize the vehicle class over 'person' so vehicles are never misidentified as person in DB!
+      // CLASS RESOLUTION:
+      // High-accuracy resolution between vehicles and pedestrians:
+      // If a pedestrian ('person') has strong votes, preserve 'person'.
+      // If vehicle classes (car, truck, bus, motorcycle) appear, prioritize vehicle unless pedestrian has >= 2.5x votes,
+      // avoiding driver/windshield misidentification while preserving walking pedestrians.
       const VEHICLE_CLASSES = ['car', 'truck', 'bus', 'motorcycle', 'bicycle'];
       const vehicleVotes = Object.entries(obj.labelVotes)
         .filter(([lbl]) => VEHICLE_CLASSES.includes(lbl))
         .sort((a, b) => b[1] - a[1]);
+      const personVotes = obj.labelVotes['person'] || 0;
 
-      if (vehicleVotes.length > 0) {
+      if (personVotes > 0 && (!vehicleVotes.length || personVotes >= vehicleVotes[0][1] * 2.5)) {
+        obj.label = 'person';
+      } else if (vehicleVotes.length > 0) {
         obj.label = vehicleVotes[0][0];
       } else if (newInput.score >= obj.score || obj.label === 'person') {
         obj.label = newInput.label;
       }
 
-      // Confirmed Vehicle Detection Event:
-      // When a vehicle is stably tracked for >= 2 frames, emit detection event once to save into DB!
+      // Confirmed Vehicle/Pedestrian Detection Event:
+      // When stably tracked for >= 2 frames, emit detection event once to save into DB
       if (!obj.loggedToDb && obj.trajectory.length >= 2) {
         obj.loggedToDb = true;
         detectionEvents.push({
@@ -192,9 +208,9 @@ export class CentroidTracker {
         });
       }
 
-      // Check if stationary / stable (movement less than 6px in recent 8 trajectory points)
-      if (obj.trajectory.length >= 8) {
-        const recent = obj.trajectory.slice(-8);
+      // Check if stationary / stable (movement less than 6px in recent 6 trajectory points)
+      if (obj.trajectory.length >= 6) {
+        const recent = obj.trajectory.slice(-6);
         const totalMovement = recent.reduce((sum, pt, idx) => {
           if (idx === 0) return 0;
           const prev = recent[idx - 1];
@@ -203,79 +219,142 @@ export class CentroidTracker {
         obj.isStationary = totalMovement < 6;
       }
 
-      // ACCURATE & ROBUST LINE CROSSING DETECTION (IN / OUT)
+      // =========================================================================
+      // FULL-BODY VIRTUAL LINE CROSSING DETECTION (CAR, BUS, MOTORCYCLE, PERSON, TRUCK)
+      // Only count IN/OUT when the ENTIRE BODY (trailing edge of bbox) has completely
+      // crossed past the virtual line.
+      // =========================================================================
       const now = Date.now();
+      const isTargetClass = COUNTABLE_CLASSES.includes(obj.label.toLowerCase());
 
       if (lineConfig.orientation === 'HORIZONTAL') {
-        // Vehicle traveling downwards (Top to Bottom):
-        // 1) Direct crossing: prevY was above line and currY is at or below line
-        // 2) Or historical trajectory started above line, now at/past lineCoord, and moving downwards
-        // 3) Or bounding box intersects / passes line while moving down
-        const isMovingDown = currY >= prevY - 2;
-        const hadPointAbove = obj.trajectory.some((pt) => pt[1] < lineCoord);
-        const bboxPassedDown = obj.bbox[1] <= lineCoord && (obj.bbox[1] + obj.bbox[3]) >= lineCoord;
+        // Horizontal Line (at Y = lineCoord)
+        const prevTop = prevBbox[1];
+        const prevBottom = prevBbox[1] + prevBbox[3];
+        const currTop = currBbox[1];
+        const currBottom = currBbox[1] + currBbox[3];
+
+        // Straddling check: Any part of the body currently touching/crossing the line
+        const isStraddling = currTop <= lineCoord && currBottom >= lineCoord;
+        obj.isCrossing = isStraddling;
+
+        // Trajectory start displacement & frame displacement
+        const startY = obj.trajectory[0][1];
+        const netDY = currY - startY;
+        const dY = currY - prevY;
+
+        // --- 1. TRAVELING DOWNWARDS (TOP TO BOTTOM -> IN) ---
+        // Must originate from above line, actually be moving downwards (netDY >= 8),
+        // and full body (top trailing edge) must have completely cleared past lineCoord!
+        const originatedAbove = startY < lineCoord || obj.trajectory.slice(0, 3).some((pt) => pt[1] < lineCoord);
+        const isTravelingDown = dY >= -1 && netDY >= 8;
+        const fullBodyPassedDown = currTop >= lineCoord - 2; // Entire body is now below line
+        const wasNotFullyPassedDown = prevTop < lineCoord; // Trailing edge was previously above line
 
         if (
+          isTargetClass &&
+          !obj.isStationary &&
           !obj.crossedIn &&
-          ((prevY < lineCoord && currY >= lineCoord) ||
-            (hadPointAbove && currY >= lineCoord && isMovingDown) ||
-            (hadPointAbove && bboxPassedDown && isMovingDown))
+          originatedAbove &&
+          isTravelingDown &&
+          fullBodyPassedDown &&
+          wasNotFullyPassedDown
         ) {
           obj.crossedIn = true;
           obj.crossedOut = false;
+          obj.fullBodyCrossed = true;
+          obj.isCrossing = false;
           obj.lastCrossedTimestamp = now;
           inEvents.push({ id: obj.id, label: obj.label, score: obj.score, timestamp: now });
         }
-        // Vehicle traveling upwards (Bottom to Top):
+        // --- 2. TRAVELING UPWARDS (BOTTOM TO TOP -> OUT) ---
+        // Must originate from below line, actually be moving upwards (netDY <= -8),
+        // and full body (bottom trailing edge) must have completely cleared past lineCoord!
         else {
-          const isMovingUp = currY <= prevY + 2;
-          const hadPointBelow = obj.trajectory.some((pt) => pt[1] > lineCoord);
-          const bboxPassedUp = obj.bbox[1] <= lineCoord && (obj.bbox[1] + obj.bbox[3]) >= lineCoord;
+          const originatedBelow = startY > lineCoord || obj.trajectory.slice(0, 3).some((pt) => pt[1] > lineCoord);
+          const isTravelingUp = dY <= 1 && netDY <= -8;
+          const fullBodyPassedUp = currBottom <= lineCoord + 2; // Entire body is now above line
+          const wasNotFullyPassedUp = prevBottom > lineCoord; // Trailing edge was previously below line
 
           if (
+            isTargetClass &&
+            !obj.isStationary &&
             !obj.crossedOut &&
-            ((prevY > lineCoord && currY <= lineCoord) ||
-              (hadPointBelow && currY <= lineCoord && isMovingUp) ||
-              (hadPointBelow && bboxPassedUp && isMovingUp))
+            originatedBelow &&
+            isTravelingUp &&
+            fullBodyPassedUp &&
+            wasNotFullyPassedUp
           ) {
             obj.crossedOut = true;
             obj.crossedIn = false;
+            obj.fullBodyCrossed = true;
+            obj.isCrossing = false;
             obj.lastCrossedTimestamp = now;
             outEvents.push({ id: obj.id, label: obj.label, score: obj.score, timestamp: now });
           }
         }
       } else {
-        // VERTICAL Line
-        // Vehicle traveling left-to-right (IN):
-        const isMovingRight = currX >= prevX - 2;
-        const hadPointLeft = obj.trajectory.some((pt) => pt[0] < lineCoord);
-        const bboxPassedRight = obj.bbox[0] <= lineCoord && (obj.bbox[0] + obj.bbox[2]) >= lineCoord;
+        // Vertical Line (at X = lineCoord)
+        const prevLeft = prevBbox[0];
+        const prevRight = prevBbox[0] + prevBbox[2];
+        const currLeft = currBbox[0];
+        const currRight = currBbox[0] + currBbox[2];
+
+        // Straddling check: Any part of the body currently touching/crossing the line
+        const isStraddling = currLeft <= lineCoord && currRight >= lineCoord;
+        obj.isCrossing = isStraddling;
+
+        // Trajectory start displacement & frame displacement
+        const startX = obj.trajectory[0][0];
+        const netDX = currX - startX;
+        const dX = currX - prevX;
+
+        // --- 1. TRAVELING LEFT-TO-RIGHT (IN) ---
+        // Must originate from left of line, actually be moving rightwards (netDX >= 8),
+        // and full body (left trailing edge) must have completely cleared past lineCoord!
+        const originatedLeft = startX < lineCoord || obj.trajectory.slice(0, 3).some((pt) => pt[0] < lineCoord);
+        const isTravelingRight = dX >= -1 && netDX >= 8;
+        const fullBodyPassedRight = currLeft >= lineCoord - 2; // Entire body is now to right of line
+        const wasNotFullyPassedRight = prevLeft < lineCoord; // Trailing edge was previously to left of line
 
         if (
+          isTargetClass &&
+          !obj.isStationary &&
           !obj.crossedIn &&
-          ((prevX < lineCoord && currX >= lineCoord) ||
-            (hadPointLeft && currX >= lineCoord && isMovingRight) ||
-            (hadPointLeft && bboxPassedRight && isMovingRight))
+          originatedLeft &&
+          isTravelingRight &&
+          fullBodyPassedRight &&
+          wasNotFullyPassedRight
         ) {
           obj.crossedIn = true;
           obj.crossedOut = false;
+          obj.fullBodyCrossed = true;
+          obj.isCrossing = false;
           obj.lastCrossedTimestamp = now;
           inEvents.push({ id: obj.id, label: obj.label, score: obj.score, timestamp: now });
         }
-        // Vehicle traveling right-to-left (OUT):
+        // --- 2. TRAVELING RIGHT-TO-LEFT (OUT) ---
+        // Must originate from right of line, actually be moving leftwards (netDX <= -8),
+        // and full body (right trailing edge) must have completely cleared past lineCoord!
         else {
-          const isMovingLeft = currX <= prevX + 2;
-          const hadPointRight = obj.trajectory.some((pt) => pt[0] > lineCoord);
-          const bboxPassedLeft = obj.bbox[0] <= lineCoord && (obj.bbox[0] + obj.bbox[2]) >= lineCoord;
+          const originatedRight = startX > lineCoord || obj.trajectory.slice(0, 3).some((pt) => pt[0] > lineCoord);
+          const isTravelingLeft = dX <= 1 && netDX <= -8;
+          const fullBodyPassedLeft = currRight <= lineCoord + 2; // Entire body is now to left of line
+          const wasNotFullyPassedLeft = prevRight > lineCoord; // Trailing edge was previously to right of line
 
           if (
+            isTargetClass &&
+            !obj.isStationary &&
             !obj.crossedOut &&
-            ((prevX > lineCoord && currX <= lineCoord) ||
-              (hadPointRight && currX <= lineCoord && isMovingLeft) ||
-              (hadPointRight && bboxPassedLeft && isMovingLeft))
+            originatedRight &&
+            isTravelingLeft &&
+            fullBodyPassedLeft &&
+            wasNotFullyPassedLeft
           ) {
             obj.crossedOut = true;
             obj.crossedIn = false;
+            obj.fullBodyCrossed = true;
+            obj.isCrossing = false;
             obj.lastCrossedTimestamp = now;
             outEvents.push({ id: obj.id, label: obj.label, score: obj.score, timestamp: now });
           }
@@ -316,10 +395,13 @@ export class CentroidTracker {
       label: item.label,
       score: item.score,
       bbox: item.bbox,
+      prevBbox: item.bbox,
       centroid: item.centroid,
       trajectory: [[cx, cy]],
       disappeared: 0,
       isStationary: false,
+      isCrossing: false,
+      fullBodyCrossed: false,
       crossedIn: false,
       crossedOut: false,
       labelVotes: { [item.label]: 1 },

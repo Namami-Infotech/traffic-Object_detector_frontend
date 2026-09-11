@@ -124,8 +124,8 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.75)',
-        backdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(6px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -133,11 +133,11 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
         padding: '1rem',
       }}
     >
-      <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', padding: '1.4rem', position: 'relative' }}>
+      <div className="glass-panel" style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', padding: '1.4rem', position: 'relative', background: '#ffffff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Camera size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.2rem', fontWeight: 600 }}>Connect New CCTV Camera</h3>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>Connect New CCTV Camera</h3>
           </div>
           <button
             onClick={onClose}
@@ -152,11 +152,11 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
             style={{
               padding: '10px 14px',
               borderRadius: '8px',
-              backgroundColor: 'rgba(239, 68, 68, 0.15)',
-              color: '#ef4444',
+              backgroundColor: '#fef2f2',
+              color: '#dc2626',
               fontSize: '0.85rem',
               marginBottom: '1rem',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
+              border: '1px solid #fecaca',
             }}
           >
             {error}
@@ -165,7 +165,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
               Camera Name
             </label>
             <input
@@ -177,16 +177,17 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                 width: '100%',
                 padding: '10px 14px',
                 borderRadius: '8px',
-                background: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid var(--border-color)',
-                color: '#fff',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: 'var(--text-primary)',
                 fontFamily: 'inherit',
+                outline: 'none',
               }}
             />
           </div>
 
           <div>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
               Intersection / Location
             </label>
             <input
@@ -198,17 +199,18 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                 width: '100%',
                 padding: '10px 14px',
                 borderRadius: '8px',
-                background: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid var(--border-color)',
-                color: '#fff',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: 'var(--text-primary)',
                 fontFamily: 'inherit',
+                outline: 'none',
               }}
             />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.8rem' }}>
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
                 Lane Name
               </label>
               <input
@@ -220,16 +222,17 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '8px',
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid var(--border-color)',
-                  color: '#fff',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: 'var(--text-primary)',
                   fontFamily: 'inherit',
+                  outline: 'none',
                 }}
               />
             </div>
 
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
                 Traffic Direction
               </label>
               <select
@@ -239,10 +242,11 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '8px',
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid var(--border-color)',
-                  color: '#fff',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: 'var(--text-primary)',
                   fontFamily: 'inherit',
+                  outline: 'none',
                 }}
               >
                 <option value="NORTH">NORTH Bound</option>
@@ -254,7 +258,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
           </div>
 
           <div>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
               CCTV Camera Type
             </label>
             <select
@@ -264,10 +268,11 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                 width: '100%',
                 padding: '10px 14px',
                 borderRadius: '8px',
-                background: 'rgba(15, 23, 42, 0.8)',
-                border: '1px solid var(--border-color)',
-                color: '#fff',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: 'var(--text-primary)',
                 fontFamily: 'inherit',
+                outline: 'none',
               }}
             >
               <option value="USB_PHONE">📱 Remote Mobile Phone / Other System Live Feed (Wireless Stream)</option>
@@ -287,10 +292,10 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
           {(cameraType === 'WEBCAM' || cameraType === 'USB_DVR_CARD') && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
                   Select Direct USB Hardware Device Channel
                 </label>
-                <span style={{ fontSize: '0.75rem', color: '#60a5fa', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ fontSize: '0.75rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <RefreshCw size={12} className={scanning ? 'spin' : ''} /> {usbDevices.length} Hardware Devices Detected
                 </span>
               </div>
@@ -301,10 +306,11 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '8px',
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid var(--border-color)',
-                  color: '#fff',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: 'var(--text-primary)',
                   fontFamily: 'inherit',
+                  outline: 'none',
                 }}
               >
                 <option value="webcam">Default System Video Device</option>
@@ -315,7 +321,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                 ))}
               </select>
 
-              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: '0.78rem', color: '#6ee7b7' }}>
+              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '6px', background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: '0.78rem', color: '#166534' }}>
                 🔌 <strong>CCTV Hardware Note:</strong> Analog Dongle / USB Grabber plug karne par Windows har channel (Ch 1, 2, 3, 4) ko individual USB Video Input device banata hai. Dropdown se specific Channel Device (OEM/USB Video) select karein.
               </div>
             </div>
@@ -323,7 +329,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
 
           {cameraType !== 'WEBCAM' && cameraType !== 'USB_DVR_CARD' && (
             <div>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '4px', display: 'block', fontWeight: 600 }}>
                 CCTV Stream URL / RTSP Address
               </label>
               <input
@@ -343,15 +349,16 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
                   width: '100%',
                   padding: '10px 14px',
                   borderRadius: '8px',
-                  background: 'rgba(15, 23, 42, 0.8)',
-                  border: '1px solid var(--border-color)',
-                  color: '#fff',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: 'var(--text-primary)',
                   fontFamily: 'inherit',
+                  outline: 'none',
                 }}
               />
 
               {/* Helpful RTSP Hardware Guides */}
-              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: '0.78rem', color: '#6ee7b7' }}>
+              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '6px', background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: '0.78rem', color: '#166534' }}>
                 💡 <strong>CCTV RTSP Format Guide:</strong>
                 {cameraType === 'HIKVISION' && ' Hikvision: rtsp://admin:password@IP:554/Streaming/Channels/101'}
                 {cameraType === 'CPPLUS_DAHUA' && ' CP Plus/Dahua: rtsp://admin:password@IP:554/cam/realmonitor?channel=1&subtype=0'}
@@ -370,13 +377,13 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
             style={{
               marginTop: '8px',
               padding: '12px',
-              borderRadius: '10px',
-              background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
+              borderRadius: '8px',
+              background: '#0f172a',
               color: '#fff',
               border: 'none',
               fontWeight: 600,
               cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(37, 99, 235, 0.4)',
+              boxShadow: '0 4px 12px rgba(15, 23, 42, 0.2)',
             }}
           >
             {loading ? 'Saving to Database...' : 'Save & Connect Camera'}

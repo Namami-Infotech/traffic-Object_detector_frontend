@@ -1,5 +1,5 @@
 import React from 'react';
-import { Car, Bus, Truck, Bike, Users, Activity, ArrowDownRight, ArrowUpRight, ShieldCheck, Scale, Database } from 'lucide-react';
+import { Car, Bus, Truck, Bike, Users, Activity, ArrowDownRight, ArrowUpRight, Scale } from 'lucide-react';
 
 interface TrafficAnalyticsProps {
   counts: Record<string, number>;
@@ -83,26 +83,11 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
       {/* 1. VIRTUAL LINE IN / OUT SUMMARY CARDS */}
-      <div className="glass-panel" style={{ padding: '1.2rem', marginTop:'3rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem'  }}>
+      <div className="glass-panel" style={{ padding: '1.2rem', marginTop: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc' }}>
+            <span style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
               📊 Total Traffic Stats (All Cameras)
-            </span>
-            <span
-              style={{
-                fontSize: '0.72rem',
-                color: '#60a5fa',
-                background: 'rgba(59, 130, 246, 0.15)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '3px',
-              }}
-            >
-              <Database size={11} /> MySQL DB Synced
             </span>
           </div>
           <div className={`badge ${densityBadgeClass}`} style={{ fontSize: '0.8rem', padding: '4px 10px' }}>
@@ -117,117 +102,112 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
             marginBottom: '0.8rem',
             padding: '8px 14px',
             borderRadius: '8px',
-            background: 'rgba(255, 255, 255, 0.04)',
+            background: 'var(--bg-card-subtle)',
             border: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
           }}
         >
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b' }}>
             All Cameras Total:
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '1.15rem', fontWeight: 800 }}>
-            <span style={{ color: '#10b981' }}>{inCount}</span>
-            <span style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>/</span>
-            <span style={{ color: '#ef4444' }}>{outCount}</span>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 600, marginLeft: '4px' }}>
-              (IN / OUT)
+            <span style={{ color: '#059669' }}>{inCount}</span>
+            <span style={{ color: '#cbd5e1', fontSize: '0.95rem' }}>/</span>
+            <span style={{ color: '#dc2626' }}>{outCount}</span>
+            <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>
+              (<span style={{ color: '#059669' }}>IN</span> / <span style={{ color: '#dc2626' }}>OUT</span>)
             </span>
           </div>
         </div>
+        {/* Net Occupancy (Prominent Hero Stat) */}
+        <div
+          style={{
+            marginTop: '0.8rem',
+            marginBottom: '0.8rem',
+            padding: '0.9rem 1.1rem',
+            borderRadius: '10px',
+            background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+            border: '1.5px solid #e2e8f0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                background: '#eff6ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#2563eb',
+              }}
+            >
+              <Scale size={22} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Net Occupancy
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                Active in premises
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+            {inCount - outCount}
+          </div>
+        </div>
 
-        {/* IN / OUT Big Counters Grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.8rem' }}>
+        {/* IN / OUT Compact Counters Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.6rem' }}>
 
           {/* IN Count Card */}
           <div
             style={{
-              background: 'rgba(16, 185, 129, 0.12)',
-              border: '1px solid rgba(16, 185, 129, 0.35)',
-              borderRadius: '10px',
-              padding: '0.9rem',
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: '8px',
+              padding: '0.5rem 0.6rem',
               textAlign: 'center',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#10b981' }}>
-              <ArrowDownRight size={20} />
-              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>TOTAL IN</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#15803d' }}>
+              <ArrowDownRight size={15} />
+              <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>TOTAL IN</span>
             </div>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#10b981', marginTop: '4px' }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#15803d', marginTop: '2px' }}>
               {inCount}
-            </div>
-            <div style={{ fontSize: '0.7rem', color: 'rgba(16, 185, 129, 0.8)', marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
-              <Database size={10} /> Saved in MySQL
             </div>
           </div>
 
           {/* OUT Count Card */}
           <div
             style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              borderRadius: '10px',
-              padding: '0.9rem',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              padding: '0.5rem 0.6rem',
               textAlign: 'center',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: '#ef4444' }}>
-              <ArrowUpRight size={20} />
-              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>TOTAL OUT</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', color: '#b91c1c' }}>
+              <ArrowUpRight size={15} />
+              <span style={{ fontSize: '0.75rem', fontWeight: 700 }}>TOTAL OUT</span>
             </div>
-            <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ef4444', marginTop: '4px' }}>
+            <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#b91c1c', marginTop: '2px' }}>
               {outCount}
             </div>
-            <div style={{ fontSize: '0.7rem', color: 'rgba(239, 68, 68, 0.8)', marginTop: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
-              <Database size={10} /> Saved in MySQL
-            </div>
           </div>
 
         </div>
 
-        {/* Net Flow & In-Frame Sub-stats */}
-        <div
-          style={{
-            marginTop: '0.8rem',
-            paddingTop: '0.8rem',
-            borderTop: '1px dashed var(--border-color)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '6px',
-            fontSize: '0.85rem',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Scale size={15} color="#60a5fa" />
-            <span>Net Occupancy: <strong style={{ color: '#60a5fa' }}>{inCount - outCount}</strong></span>
-          </div>
-
-          <div>
-            Active in Frame: <strong style={{ color: 'var(--text-primary)' }}>{totalInFrame}</strong>
-          </div>
-        </div>
-
-        {/* De-duplication Protection Indicator */}
-        <div
-          style={{
-            marginTop: '0.8rem',
-            background: 'rgba(59, 130, 246, 0.08)',
-            border: '1px solid rgba(59, 130, 246, 0.2)',
-            borderRadius: '8px',
-            padding: '6px 10px',
-            fontSize: '0.75rem',
-            color: '#60a5fa',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          <ShieldCheck size={16} />
-          <span>Anti-Duplicate Tracking Active (Stable objects won't re-trigger)</span>
-        </div>
       </div>
 
       {/* 2. OBJECT CLASS BREAKDOWN GRID */}
@@ -241,7 +221,7 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
                   width: '36px',
                   height: '36px',
                   borderRadius: '8px',
-                  backgroundColor: `${item.color}20`,
+                  backgroundColor: `${item.color}15`,
                   color: item.color,
                   display: 'flex',
                   alignItems: 'center',
@@ -251,16 +231,16 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
               >
                 <Icon size={18} />
               </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 800 }}>
-                <span style={{ color: '#10b981' }}>{item.in}</span>
-                <span style={{ color: 'var(--text-secondary)', margin: '0 4px' }}>/</span>
-                <span style={{ color: '#ef4444' }}>{item.out}</span>
+              <div style={{ fontSize: '1.25rem', fontWeight: 800, lineHeight: 1.2 }}>
+                <span style={{ color: '#059669' }}>{item.in}</span>
+                <span style={{ color: '#cbd5e1', margin: '0 4px', fontWeight: 400 }}>/</span>
+                <span style={{ color: '#dc2626' }}>{item.out}</span>
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: 600 }}>
+              <div style={{ fontSize: '0.85rem', color: '#0f172a', marginTop: '4px', fontWeight: 700 }}>
                 {item.label}
               </div>
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', opacity: 0.8 }}>
-                (IN / OUT)
+              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>
+                (<span style={{ color: '#059669' }}>IN</span> / <span style={{ color: '#dc2626' }}>OUT</span>)
               </div>
             </div>
           );

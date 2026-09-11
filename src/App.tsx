@@ -7,6 +7,7 @@ import { TrafficAnalytics } from './components/TrafficAnalytics';
 import { CameraFormModal } from './components/CameraFormModal';
 import { DetectionHistoryTable } from './components/DetectionHistoryTable';
 import { CameraBroadcaster } from './components/CameraBroadcaster';
+import { Radio } from 'lucide-react';
 import { getCameras, getAnalytics } from './routes';
 import { socketService } from './services/socketService';
 
@@ -293,8 +294,22 @@ export function App() {
         </main>
       ) : (
         <main className="app-container">
-          {/* Top Control Bar: View Mode Switcher (GRID vs SINGLE) & Focus Selector */}
-          
+          {/* Multi-Camera AI Pipeline Status Header (Across full width, aligning both columns) */}
+          {viewMode === 'GRID' && cameras.some((c) => c.enabled !== false) && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '1rem',
+              }}
+            >
+              <Radio color="#059669" size={20} />
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
+                Multi-Camera AI Pipeline ({cameras.filter((c) => c.enabled !== false).length} Active Feeds)
+              </h2>
+            </div>
+          )}
 
           {/* Responsive Grid: Left (CCTV Video Stream Grid / Single) | Right (Realtime Analytics) */}
           <div className="app-main-grid">
@@ -312,6 +327,10 @@ export function App() {
                   selectedCameraUrl={activeCamera.rtspUrl}
                   cameraType={activeCamera.cameraType || 'WEBCAM'}
                   cameraId={activeCamera.id}
+                  cameraName={activeCamera.cameraName}
+                  location={activeCamera.location}
+                  lane={activeCamera.lane}
+                  direction={activeCamera.direction}
                   onDetectionUpdate={(data) => handleDetectionUpdate(activeCamera.id, data)}
                   onModelLoaded={(loaded) => setIsAiLoading(!loaded)}
                 />

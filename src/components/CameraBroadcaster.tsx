@@ -262,9 +262,9 @@ export const CameraBroadcaster: React.FC<CameraBroadcasterProps> = ({ onBackToDa
       </div>
 
       {/* Stream Controls & Target Camera Assignment */}
-      <div className="glass-panel" style={{ padding: '1.2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div className="glass-panel" style={{ padding: '1.2rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '1rem', background: '#ffffff' }}>
         <div>
-          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
+          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '6px', fontWeight: 600 }}>
             🎯 Stream As Which Camera on Dashboard?
           </label>
           <select
@@ -274,10 +274,10 @@ export const CameraBroadcaster: React.FC<CameraBroadcasterProps> = ({ onBackToDa
             style={{
               width: '100%',
               padding: '12px',
-              borderRadius: '10px',
-              background: 'rgba(15, 23, 42, 0.9)',
-              border: '1px solid var(--border-color)',
-              color: '#fff',
+              borderRadius: '8px',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              color: 'var(--text-primary)',
               fontSize: '0.95rem',
             }}
           >
@@ -293,21 +293,21 @@ export const CameraBroadcaster: React.FC<CameraBroadcasterProps> = ({ onBackToDa
         {selectedCameraId === 'NEW' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
             <div>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Camera Name</label>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Camera Name</label>
               <input
                 type="text"
                 value={customCameraName}
                 onChange={(e) => setCustomCameraName(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: '#fff' }}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: 'var(--text-primary)' }}
               />
             </div>
             <div>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>Location</label>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px', fontWeight: 600 }}>Location</label>
               <input
                 type="text"
                 value={customLocation}
                 onChange={(e) => setCustomLocation(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: 'rgba(15, 23, 42, 0.9)', border: '1px solid var(--border-color)', color: '#fff' }}
+                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1', color: 'var(--text-primary)' }}
               />
             </div>
           </div>

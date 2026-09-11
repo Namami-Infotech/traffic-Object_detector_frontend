@@ -1,22 +1,26 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-dark: #0b0f19;
-  --bg-card: rgba(18, 24, 38, 0.85);
-  --bg-card-hover: rgba(30, 41, 59, 0.9);
-  --border-color: rgba(255, 255, 255, 0.1);
-  --text-primary: #f8fafc;
-  --text-secondary: #94a3b8;
-  --accent-blue: #3b82f6;
-  --accent-cyan: #06b6d4;
-  --accent-green: #10b981;
-  --accent-amber: #f59e0b;
-  --accent-red: #ef4444;
-  --accent-purple: #8b5cf6;
+  --bg-body: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-subtle: #f8fafc;
+  --bg-card-hover: #f1f5f9;
+  --border-color: #e2e8f0;
+  --border-color-hover: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent-blue: #2563eb;
+  --accent-cyan: #0284c7;
+  --accent-green: #059669;
+  --accent-amber: #d97706;
+  --accent-red: #dc2626;
+  --accent-purple: #7c3aed;
   --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-  --radius-lg: 16px;
-  --radius-md: 12px;
-  --shadow-glow: 0 0 25px rgba(59, 130, 246, 0.15);
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --shadow-card: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+  --shadow-glow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
 }
 
 * {
@@ -26,50 +30,48 @@
 }
 
 body {
-  background-color: var(--bg-dark);
+  background-color: var(--bg-body);
   color: var(--text-primary);
   font-family: var(--font-main);
   min-height: 100vh;
   background-image:
-    radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.12) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%);
+    radial-gradient(at 100% 0%, rgba(241, 245, 249, 0.8) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(241, 245, 249, 0.8) 0px, transparent 50%);
   background-attachment: fixed;
   overflow-x: hidden;
 }
 
-/* Glassmorphism Card Utility */
+/* Glassmorphism / Professional Card Utility */
 .glass-panel {
   background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 6px 16px -3px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s ease;
 }
 
 .glass-panel:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: var(--shadow-glow);
+  border-color: var(--border-color-hover);
+  box-shadow: 0 10px 24px -4px rgba(0, 0, 0, 0.07);
 }
 
 /* Custom Scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: #cbd5e1;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: #94a3b8;
 }
 
 /* Badge Utilities */
@@ -80,27 +82,27 @@ body {
   padding: 4px 12px;
   border-radius: 20px;
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .badge-live {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--accent-green);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
 }
 
 .badge-warning {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--accent-amber);
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fde68a;
 }
 
 .badge-danger {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--accent-red);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
 }
 
 /* Pulsing Dot Animation */
@@ -115,15 +117,15 @@ body {
 
 @keyframes pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7);
   }
 
   70% {
-    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 8px rgba(5, 150, 105, 0);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    box-shadow: 0 0 0 0 rgba(5, 150, 105, 0);
   }
 }
 

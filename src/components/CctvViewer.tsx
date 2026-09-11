@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
-import { AlertCircle, Radio, Sliders, RotateCcw, Eye, ArrowLeftRight, ArrowUpDown } from 'lucide-react';
+import { AlertCircle, Radio, Sliders, ArrowLeftRight, ArrowUpDown, MapPin, Navigation, Maximize2, Minimize2 } from 'lucide-react';
 import { CentroidTracker } from '../utils/centroidTracker';
 import type { LineConfig, TrackedObject } from '../utils/centroidTracker';
 import { createDetectionLog, getAnalytics } from '../routes';
@@ -24,6 +24,10 @@ interface CctvViewerProps {
   selectedCameraUrl: string;
   cameraType: 'WEBCAM' | 'USB_PHONE' | 'IP_RTSP' | 'DROIDCAM' | 'FILE';
   cameraId?: string;
+  cameraName?: string;
+  location?: string;
+  lane?: string;
+  direction?: string;
   deviceId?: string;
   onDetectionUpdate: (data: DetectionUpdateData) => void;
   onModelLoaded: (loaded: boolean) => void;
@@ -33,18 +37,24 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
   selectedCameraUrl,
   cameraType,
   cameraId,
+  cameraName,
+  location,
+  lane,
+  direction,
   deviceId,
   onDetectionUpdate,
   onModelLoaded,
 }) => {
+  const viewerContainerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const trackerRef = useRef<CentroidTracker>(new CentroidTracker());
 
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
   const [isDetecting] = useState<boolean>(true);
-  const [fps, setFps] = useState<number>(0);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [isLocalStreamActive, setIsLocalStreamActive] = useState<boolean>(false);
 
   // Virtual Line & Tracking Settings State (Default VERTICAL - Khadi Line)
   const isRtspStream = Boolean(
@@ -55,7 +65,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
 
   const [lineOrientation, setLineOrientation] = useState<'VERTICAL' | 'HORIZONTAL'>('HORIZONTAL');
   const [linePositionPercent, setLinePositionPercent] = useState<number>(50); // 50% screen position
-  const [showTrajectories, setShowTrajectories] = useState<boolean>(true);
+  const [showTrajectories] = useState<boolean>(true);
 
   // Live Line Crossing Counters State & Persistent Refs
   const [_inCount, setInCount] = useState<number>(0);
@@ -76,9 +86,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
     PERSON: { in: 0, out: 0 },
   });
 
-  const lastTimeRef = useRef<number>(performance.now());
   const lastDetectTimeRef = useRef<number>(0);
-  const frameCountRef = useRef<number>(0);
   const reqAnimRef = useRef<number | null>(null);
 
   // Fetch initial total IN/OUT counts & vehicle breakdown from MySQL DB for THIS camera
@@ -165,6 +173,77 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
   const lastRemoteFrameTimeRef = useRef<number>(0);
   const lastRestartRequestTimeRef = useRef<number>(0);
   const localCameraActiveRef = useRef<boolean>(false);
+
+  // Camera running status: active when receiving remote stream or local webcam is streaming
+  const isCameraRunning =
+    !cameraError &&
+    (hasRemoteFeed ||
+      Boolean(remoteImageSrc) ||
+      isLocalStreamActive ||
+      localCameraActiveRef.current ||
+      Boolean(videoRef.current && videoRef.current.readyState >= 2));
+
+  // Fullscreen Handlers
+  const exitFullscreenMode = () => {
+    setIsFullscreen(false);
+    try {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) {
+          document.exitFullscreen().catch(() => {});
+        } else if ((document as any).webkitExitFullscreen) {
+          (document as any).webkitExitFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn('Native exitFullscreen failed:', err);
+    }
+  };
+
+  const toggleFullscreen = async () => {
+    if (!isCameraRunning) return;
+
+    if (!isFullscreen) {
+      setIsFullscreen(true);
+      try {
+        const elem = viewerContainerRef.current;
+        if (elem && !document.fullscreenElement) {
+          if (elem.requestFullscreen) {
+            await elem.requestFullscreen();
+          } else if ((elem as any).webkitRequestFullscreen) {
+            await (elem as any).webkitRequestFullscreen();
+          }
+        }
+      } catch (err) {
+        console.warn('Native requestFullscreen failed or blocked, continuing with fixed overlay:', err);
+      }
+    } else {
+      exitFullscreenMode();
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        setIsFullscreen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isFullscreen) {
+        exitFullscreenMode();
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen]);
 
   // Listen for incoming remote camera frames over Socket.IO (from phones / other devices)
   useEffect(() => {
@@ -338,6 +417,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
               currentStream = stream;
               acquired = true;
               localCameraActiveRef.current = true; // Mark this tile as having a live local webcam
+              setIsLocalStreamActive(true);
               setIsBroadcastingLocal(true); // Automatically broadcast local webcam to all other devices on the network!
               setCameraError(null);
               break;
@@ -352,7 +432,9 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         }
       } else if (isDirectMediaFile) {
         videoRef.current.src = selectedCameraUrl;
-        videoRef.current.play().catch(() => {
+        videoRef.current.play().then(() => {
+          setIsLocalStreamActive(true);
+        }).catch(() => {
           if (!hasRemoteFeed) {
             setCameraError('Unable to play stream URL.');
           }
@@ -365,6 +447,8 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
     initCamera();
 
     return () => {
+      localCameraActiveRef.current = false;
+      setIsLocalStreamActive(false);
       if (currentStream) {
         currentStream.getTracks().forEach((track) => track.stop());
       }
@@ -377,30 +461,6 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       }
     };
   }, [selectedCameraUrl, cameraType, deviceId, retryTrigger, cameraId]);
-
-  // Reset Counters
-  const handleResetCounters = () => {
-    inCountRef.current = 0;
-    outCountRef.current = 0;
-    setInCount(0);
-    setOutCount(0);
-    setCameraVehicleInOut({
-      CAR: { in: 0, out: 0 },
-      TRUCK: { in: 0, out: 0 },
-      BUS: { in: 0, out: 0 },
-      MOTORCYCLE: { in: 0, out: 0 },
-    });
-    trackerRef.current.reset();
-    onDetectionUpdate({
-      counts: { car: 0, bus: 0, truck: 0, motorcycle: 0, person: 0, bicycle: 0 },
-      inCount: 0,
-      outCount: 0,
-      activeCount: 0,
-      inEvents: [],
-      outEvents: [],
-      log: [],
-    });
-  };
 
   // 3. Main Real-time Object Detection & Centroid Line Tracking Loop
   useEffect(() => {
@@ -552,37 +612,37 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
       if (lineOrientation === 'HORIZONTAL') {
         // Line Title Badge
         ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
-        ctx.fillRect(15, lineCoord - 26, 175, 24);
+        ctx.fillRect(15, lineCoord - 26, 210, 24);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`VIRTUAL LINE (${linePositionPercent}%)`, 22, lineCoord - 10);
+        ctx.fillText(`FULL-BODY LINE (${linePositionPercent}%)`, 22, lineCoord - 10);
 
         // Direction Badges (IN / OUT)
         ctx.fillStyle = 'rgba(16, 185, 129, 0.85)'; // Green IN
-        ctx.fillRect(canvas.width - 110, lineCoord + 6, 95, 22);
+        ctx.fillRect(canvas.width - 125, lineCoord + 6, 110, 22);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('▼ IN (Enter)', canvas.width - 102, lineCoord + 21);
+        ctx.fillText('▼ IN (Full Body)', canvas.width - 119, lineCoord + 21);
 
         ctx.fillStyle = 'rgba(239, 68, 68, 0.85)'; // Red OUT
-        ctx.fillRect(canvas.width - 110, lineCoord - 28, 95, 22);
+        ctx.fillRect(canvas.width - 125, lineCoord - 28, 110, 22);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('▲ OUT (Exit)', canvas.width - 102, lineCoord - 13);
+        ctx.fillText('▲ OUT (Full Body)', canvas.width - 119, lineCoord - 13);
       } else {
         // Vertical Line
         ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
-        ctx.fillRect(lineCoord - 85, 15, 170, 24);
+        ctx.fillRect(lineCoord - 95, 15, 190, 24);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`VIRTUAL LINE (${linePositionPercent}%)`, lineCoord - 78, 31);
+        ctx.fillText(`FULL-BODY LINE (${linePositionPercent}%)`, lineCoord - 88, 31);
 
         // IN / OUT Badges
         ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
-        ctx.fillRect(lineCoord + 6, 50, 85, 22);
+        ctx.fillRect(lineCoord + 6, 50, 120, 22);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('IN ►', lineCoord + 28, 65);
+        ctx.fillText('IN (Full Body) ►', lineCoord + 12, 65);
 
         ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
-        ctx.fillRect(lineCoord - 91, 50, 85, 22);
+        ctx.fillRect(lineCoord - 126, 50, 120, 22);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText('◄ OUT', lineCoord - 68, 65);
+        ctx.fillText('◄ OUT (Full Body)', lineCoord - 120, 65);
       }
 
       // --- DRAW TRACKED OBJECTS & TRAJECTORIES ---
@@ -639,8 +699,8 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         }
 
         // 2. Draw Bounding Box
-        ctx.strokeStyle = baseColor;
-        ctx.lineWidth = obj.isStationary ? 2 : 3;
+        ctx.strokeStyle = obj.isCrossing ? '#f59e0b' : baseColor;
+        ctx.lineWidth = obj.isCrossing ? 3.5 : (obj.isStationary ? 2 : 3);
         ctx.strokeRect(x, y, width, height);
 
         // 3. Draw Centroid Dot
@@ -648,17 +708,19 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         ctx.arc(cx, cy, 5, 0, 2 * Math.PI);
         ctx.fillStyle = '#ffffff';
         ctx.fill();
-        ctx.strokeStyle = baseColor;
+        ctx.strokeStyle = obj.isCrossing ? '#f59e0b' : baseColor;
         ctx.stroke();
 
-        // 4. Draw Header Badge (CLASS + UNIQUE TRACK ID + STABLE INDICATOR)
+        // 4. Draw Header Badge (CLASS + UNIQUE TRACK ID + STABLE / CROSSING INDICATOR)
         let statusBadge = '';
         if (obj.isStationary) {
           statusBadge = ' [STABLE]';
+        } else if (obj.isCrossing) {
+          statusBadge = ' [CROSSING LINE...]';
         } else if (obj.crossedIn) {
-          statusBadge = ' [IN]';
+          statusBadge = ' [FULL BODY IN]';
         } else if (obj.crossedOut) {
-          statusBadge = ' [OUT]';
+          statusBadge = ' [FULL BODY OUT]';
         }
 
         const badgeText = `${obj.label.toUpperCase()} #${obj.id} ${Math.round(obj.score * 100)}%${statusBadge}`;
@@ -666,25 +728,27 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         const textWidth = ctx.measureText(badgeText).width;
 
         // Background box for label badge
-        ctx.fillStyle = obj.isStationary ? '#475569' : baseColor;
+        ctx.fillStyle = obj.isCrossing ? '#d97706' : (obj.isStationary ? '#475569' : baseColor);
         ctx.fillRect(x, y > 24 ? y - 24 : y, textWidth + 12, 22);
 
         ctx.fillStyle = '#ffffff';
         ctx.fillText(badgeText, x + 6, y > 24 ? y - 8 : y + 15);
 
-        // 5. Draw Pulse Banner if Object recently crossed line (within 1.5s)
-        if (obj.lastCrossedTimestamp && Date.now() - obj.lastCrossedTimestamp < 1500) {
-          const crossedType = obj.crossedIn ? 'IN (+1)' : 'OUT (+1)';
+        // 5. Draw Pulse Banner if Object recently crossed line (within 2s)
+        if (obj.lastCrossedTimestamp && Date.now() - obj.lastCrossedTimestamp < 2000) {
+          const crossedType = obj.crossedIn ? 'FULL BODY IN (+1)' : 'FULL BODY OUT (+1)';
           const pulseColor = obj.crossedIn ? '#10b981' : '#ef4444';
 
           ctx.fillStyle = pulseColor;
           ctx.beginPath();
-          ctx.roundRect(cx - 35, cy - 35, 70, 24, 6);
+          ctx.roundRect(cx - 65, cy - 35, 130, 26, 6);
           ctx.fill();
 
           ctx.fillStyle = '#ffffff';
           ctx.font = 'bold 12px Outfit, sans-serif';
-          ctx.fillText(crossedType, cx - 24, cy - 19);
+          ctx.textAlign = 'center';
+          ctx.fillText(crossedType, cx, cy - 18);
+          ctx.textAlign = 'start';
         }
 
         detectedLogs.push({
@@ -692,6 +756,8 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           label: obj.label,
           score: obj.score,
           isStationary: obj.isStationary,
+          isCrossing: obj.isCrossing,
+          fullBodyCrossed: obj.fullBodyCrossed,
           crossedIn: obj.crossedIn,
           crossedOut: obj.crossedOut,
         });
@@ -733,15 +799,6 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         timestamp: new Date().toISOString(),
       });
 
-      // Calculate FPS
-      frameCountRef.current++;
-      const timeDiff = performance.now() - lastTimeRef.current;
-      if (timeDiff >= 1000) {
-        setFps(Math.round((frameCountRef.current * 1000) / timeDiff));
-        frameCountRef.current = 0;
-        lastTimeRef.current = performance.now();
-      }
-
       if (isSubscribed) {
         reqAnimRef.current = requestAnimationFrame(detectFrame);
       }
@@ -758,40 +815,304 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
   }, [model, isDetecting, lineOrientation, linePositionPercent, showTrajectories]);
 
   return (
-    <div className="glass-panel" style={{ padding: '1.2rem', position: 'relative' }}>
-      {/* Header controls bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Radio color="var(--accent-red)" size={18} />
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 600 }}>CCTV Stream & Virtual Line Tracker</h2>
-        </div>
-
+    <div
+      ref={viewerContainerRef}
+      className="glass-panel"
+      style={
+        isFullscreen
+          ? {
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              zIndex: 99999,
+              background: '#070b14',
+              padding: '0.6rem 0.8rem',
+              margin: 0,
+              borderRadius: 0,
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-start',
+              overflow: 'hidden',
+            }
+          : {
+              padding: '1.2rem',
+              position: 'relative',
+            }
+      }
+    >
+      {/* Header controls bar: Left side has Header Camera info, Right side has Camera Stats & Tallies */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '0.8rem',
+          flexWrap: 'wrap',
+          gap: '10px',
+        }}
+      >
+        {/* Left Side: Header info (Camera Name, Location, Lane) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {hasRemoteFeed && (
-            <span style={{ fontSize: '0.75rem', background: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399' }}></span>
-              Remote Feed
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Radio color="var(--accent-red)" size={18} />
+            <h2
+              style={{
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                margin: 0,
+                color: isFullscreen ? '#f8fafc' : 'var(--text-primary)',
+              }}
+            >
+              {cameraName || 'CCTV Stream & Virtual Line Tracker'}
+            </h2>
+          </div>
+          {location && (
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: '#f59e0b',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontWeight: 500,
+              }}
+            >
+              <MapPin size={12} color="#f59e0b" />
+              {location}
             </span>
           )}
-          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'rgba(15, 23, 42, 0.8)', padding: '3px 8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-            FPS: <strong style={{ color: '#10b981' }}>{fps}</strong>
-          </div>
+          {lane && (
+            <span
+              style={{
+                fontSize: '0.75rem',
+                color: '#10b981',
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                padding: '2px 7px',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontWeight: 500,
+              }}
+            >
+              <Navigation size={12} color="#10b981" />
+              {lane} {direction ? `(${direction})` : ''}
+            </span>
+          )}
+        </div>
+
+        {/* Right Side: Camera Counts, Active, Vehicle breakdown & Fullscreen toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          {/* This Camera IN / OUT */}
+          <span
+            style={{
+              background: isFullscreen ? 'rgba(255, 255, 255, 0.08)' : '#f8fafc',
+              border: isFullscreen ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid var(--border-color)',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: isFullscreen ? '#ffffff' : 'inherit',
+            }}
+          >
+            <span style={{ color: isFullscreen ? '#cbd5e1' : 'var(--text-secondary)', fontSize: '0.72rem' }}>
+              IN/OUT:
+            </span>
+            <strong style={{ color: '#059669' }}>{_inCount}</strong>
+            <span style={{ color: 'var(--text-muted)', margin: '0 1px' }}>/</span>
+            <strong style={{ color: '#dc2626' }}>{_outCount}</strong>
+          </span>
+
+          {/* Active in Frame */}
+          <span
+            style={{
+              background: '#eff6ff',
+              border: '1px solid #bfdbfe',
+              color: '#1d4ed8',
+              padding: '3px 7px',
+              borderRadius: '6px',
+              fontSize: '0.76rem',
+              fontWeight: 700,
+            }}
+          >
+            Active: {activeVehicleCount}
+          </span>
+
+          {/* Vehicle mini badges */}
+          <span
+            style={{
+              fontSize: '0.74rem',
+              background: '#eff6ff',
+              border: '1px solid #dbeafe',
+              color: '#1e40af',
+              padding: '2px 6px',
+              borderRadius: '5px',
+            }}
+          >
+            🚗 <strong style={{ color: '#059669' }}>{cameraVehicleInOut.CAR?.in || 0}</strong>/<strong style={{ color: '#dc2626' }}>{cameraVehicleInOut.CAR?.out || 0}</strong>
+          </span>
+
+          <span
+            style={{
+              fontSize: '0.74rem',
+              background: '#fef2f2',
+              border: '1px solid #fee2e2',
+              color: '#991b1b',
+              padding: '2px 6px',
+              borderRadius: '5px',
+            }}
+          >
+            🚚 <strong style={{ color: '#059669' }}>{cameraVehicleInOut.TRUCK?.in || 0}</strong>/<strong style={{ color: '#dc2626' }}>{cameraVehicleInOut.TRUCK?.out || 0}</strong>
+          </span>
+
+          <span
+            style={{
+              fontSize: '0.74rem',
+              background: '#fffbeb',
+              border: '1px solid #fef3c7',
+              color: '#92400e',
+              padding: '2px 6px',
+              borderRadius: '5px',
+            }}
+          >
+            🚌 <strong style={{ color: '#059669' }}>{cameraVehicleInOut.BUS?.in || 0}</strong>/<strong style={{ color: '#dc2626' }}>{cameraVehicleInOut.BUS?.out || 0}</strong>
+          </span>
+
+          <span
+            style={{
+              fontSize: '0.74rem',
+              background: '#f5f3ff',
+              border: '1px solid #ede9fe',
+              color: '#5b21b6',
+              padding: '2px 6px',
+              borderRadius: '5px',
+            }}
+          >
+            🏍️ <strong style={{ color: '#059669' }}>{cameraVehicleInOut.MOTORCYCLE?.in || 0}</strong>/<strong style={{ color: '#dc2626' }}>{cameraVehicleInOut.MOTORCYCLE?.out || 0}</strong>
+          </span>
+
+          {((cameraVehicleInOut.PERSON?.in || 0) > 0 || (cameraVehicleInOut.PERSON?.out || 0) > 0) && (
+            <span
+              style={{
+                fontSize: '0.74rem',
+                background: '#ecfeff',
+                border: '1px solid #cffafe',
+                color: '#0e7490',
+                padding: '2px 6px',
+                borderRadius: '5px',
+              }}
+            >
+              🚶 <strong style={{ color: '#059669' }}>{cameraVehicleInOut.PERSON?.in || 0}</strong>/<strong style={{ color: '#dc2626' }}>{cameraVehicleInOut.PERSON?.out || 0}</strong>
+            </span>
+          )}
+
+          {activeVehicleCount > 0 && Object.values(liveCounts).some((c) => c > 0) && (
+            <span
+              style={{
+                fontSize: '0.72rem',
+                color: '#065f46',
+                background: '#ecfdf5',
+                border: '1px solid #a7f3d0',
+                padding: '2px 6px',
+                borderRadius: '4px',
+              }}
+            >
+              ● In Frame:{' '}
+              {Object.entries(liveCounts)
+                .filter(([, c]) => c > 0)
+                .map(([k, c]) => `${k}:${c}`)
+                .join(', ')}
+            </span>
+          )}
+
+          {hasRemoteFeed && (
+            <span
+              style={{
+                fontSize: '0.74rem',
+                background: 'rgba(16, 185, 129, 0.2)',
+                color: '#34d399',
+                padding: '3px 7px',
+                borderRadius: '6px',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399' }} />
+              Remote
+            </span>
+          )}
+
+          {/* Fullscreen Button in Header */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleFullscreen();
+            }}
+            disabled={!isCameraRunning}
+            title={
+              isFullscreen
+                ? 'Exit Fullscreen (ESC)'
+                : isCameraRunning
+                ? 'Click to expand to Fullscreen'
+                : 'Camera not streaming'
+            }
+            style={{
+              background: isFullscreen ? '#ef4444' : isCameraRunning ? '#eff6ff' : '#f8fafc',
+              border: isFullscreen ? '1px solid #dc2626' : isCameraRunning ? '1px solid #bfdbfe' : '1px solid var(--border-color)',
+              color: isFullscreen ? '#ffffff' : isCameraRunning ? '#2563eb' : 'var(--text-secondary)',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: isCameraRunning ? 'pointer' : 'not-allowed',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              opacity: isCameraRunning ? 1 : 0.5,
+              transition: 'all 0.2s ease',
+            }}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 size={13} />
+                <span>Exit Fullscreen</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 size={13} />
+                <span>Full Screen</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {/* VIRTUAL LINE CONFIGURATION CONTROLS PANEL */}
       <div
         style={{
-          background: 'rgba(15, 23, 42, 0.7)',
+          background: '#f8fafc',
           border: '1px solid var(--border-color)',
           borderRadius: '10px',
-          padding: '0.8rem 1rem',
-          marginBottom: '1rem',
+          padding: isFullscreen ? '0.5rem 0.8rem' : '0.8rem 1rem',
+          marginBottom: isFullscreen ? '0.6rem' : '1rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1rem',
+          gap: isFullscreen ? '0.6rem' : '1rem',
         }}
       >
         {/* Orientation Toggle */}
@@ -804,9 +1125,9 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
               borderRadius: '6px',
               fontSize: '0.8rem',
               fontWeight: lineOrientation === 'VERTICAL' ? 600 : 400,
-              border: lineOrientation === 'VERTICAL' ? '1px solid #f59e0b' : '1px solid var(--border-color)',
-              background: lineOrientation === 'VERTICAL' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
-              color: lineOrientation === 'VERTICAL' ? '#f59e0b' : 'var(--text-secondary)',
+              border: lineOrientation === 'VERTICAL' ? '1px solid #d97706' : '1px solid var(--border-color)',
+              background: lineOrientation === 'VERTICAL' ? '#fef3c7' : '#ffffff',
+              color: lineOrientation === 'VERTICAL' ? '#b45309' : 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -822,9 +1143,9 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
               borderRadius: '6px',
               fontSize: '0.8rem',
               fontWeight: lineOrientation === 'HORIZONTAL' ? 600 : 400,
-              border: lineOrientation === 'HORIZONTAL' ? '1px solid #f59e0b' : '1px solid var(--border-color)',
-              background: lineOrientation === 'HORIZONTAL' ? 'rgba(245, 158, 11, 0.25)' : 'transparent',
-              color: lineOrientation === 'HORIZONTAL' ? '#f59e0b' : 'var(--text-secondary)',
+              border: lineOrientation === 'HORIZONTAL' ? '1px solid #d97706' : '1px solid var(--border-color)',
+              background: lineOrientation === 'HORIZONTAL' ? '#fef3c7' : '#ffffff',
+              color: lineOrientation === 'HORIZONTAL' ? '#b45309' : 'var(--text-secondary)',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -837,7 +1158,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
 
         {/* Dynamic Line Position Slider & Quick Presets */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1', minWidth: '180px', flexWrap: 'wrap' }}>
-          <Sliders size={16} color="#f59e0b" />
+          <Sliders size={16} color="#d97706" />
           <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
             {lineOrientation === 'VERTICAL' ? 'X-Pos' : 'Y-Pos'} ({linePositionPercent}%):
           </span>
@@ -847,7 +1168,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
             max="90"
             value={linePositionPercent}
             onChange={(e) => setLinePositionPercent(Number(e.target.value))}
-            style={{ flex: 1, minWidth: '100px', cursor: 'pointer', accentColor: '#f59e0b' }}
+            style={{ flex: 1, minWidth: '100px', cursor: 'pointer', accentColor: '#d97706' }}
           />
         </div>
 
@@ -873,9 +1194,9 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
                 padding: '4px 8px',
                 borderRadius: '6px',
                 fontSize: '0.75rem',
-                border: linePositionPercent === preset.val ? '1px solid #f59e0b' : '1px solid var(--border-color)',
-                background: linePositionPercent === preset.val ? 'rgba(245, 158, 11, 0.2)' : 'transparent',
-                color: linePositionPercent === preset.val ? '#f59e0b' : 'var(--text-secondary)',
+                border: linePositionPercent === preset.val ? '1px solid #d97706' : '1px solid var(--border-color)',
+                background: linePositionPercent === preset.val ? '#fef3c7' : '#ffffff',
+                color: linePositionPercent === preset.val ? '#b45309' : 'var(--text-secondary)',
                 cursor: 'pointer',
               }}
             >
@@ -884,59 +1205,41 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           ))}
         </div>
 
-        {/* Trajectory & Reset Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <button
-            onClick={() => setShowTrajectories(!showTrajectories)}
-            style={{
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              border: showTrajectories ? '1px solid #3b82f6' : '1px solid var(--border-color)',
-              background: showTrajectories ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
-              color: showTrajectories ? '#60a5fa' : 'var(--text-secondary)',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            <Eye size={14} /> Trails
-          </button>
-
-          <button
-            onClick={handleResetCounters}
-            style={{
-              padding: '4px 10px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              border: '1px solid rgba(239, 68, 68, 0.5)',
-              background: 'rgba(239, 68, 68, 0.1)',
-              color: '#ef4444',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-            title="Reset IN and OUT Counters"
-          >
-            <RotateCcw size={14} /> Reset
-          </button>
-        </div>
+      
       </div>
 
       {/* Video & Canvas Overlay Stream Container */}
       <div
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('button, input, a')) return;
+          if (isCameraRunning) {
+            toggleFullscreen();
+          }
+        }}
+        title={
+          isCameraRunning
+            ? isFullscreen
+              ? 'Click to Exit Fullscreen'
+              : 'Click to open Full Screen'
+            : ''
+        }
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: '16/9',
+          aspectRatio: isFullscreen ? undefined : '16/9',
+          flex: isFullscreen ? 1 : undefined,
+          minHeight: isFullscreen ? 0 : undefined,
+          maxWidth: '100%',
+          margin: 0,
           backgroundColor: '#000',
           borderRadius: '12px',
           overflow: 'hidden',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
+          cursor: isCameraRunning ? (isFullscreen ? 'default' : 'pointer') : 'default',
+          boxShadow: isCameraRunning && !isFullscreen ? '0 0 0 1px rgba(16, 185, 129, 0.35)' : undefined,
+          transition: 'box-shadow 0.2s ease',
         }}
       >
         <video
@@ -944,6 +1247,10 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           crossOrigin="anonymous"
           muted
           playsInline
+          onPlaying={() => setIsLocalStreamActive(true)}
+          onLoadedData={() => setIsLocalStreamActive(true)}
+          onPause={() => setIsLocalStreamActive(false)}
+          onEnded={() => setIsLocalStreamActive(false)}
           style={{
             width: '100%',
             height: '100%',
@@ -983,6 +1290,34 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
             pointerEvents: 'none',
           }}
         />
+
+        {/* Floating badge for running camera when NOT fullscreen */}
+        {isCameraRunning && !isFullscreen && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '12px',
+              right: '12px',
+              zIndex: 6,
+              background: 'rgba(15, 23, 42, 0.78)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: '8px',
+              padding: '5px 11px',
+              color: '#ffffff',
+              fontSize: '0.74rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              pointerEvents: 'none',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            }}
+          >
+            <Maximize2 size={13} color="#60a5fa" />
+            <span>Click for Fullscreen</span>
+          </div>
+        )}
 
         {/* Waiting for Remote Feed Placeholder */}
         {!hasRemoteFeed && !remoteImageSrc && cameraId !== 'default-webcam' && (!selectedCameraUrl || selectedCameraUrl === 'webcam' || selectedCameraUrl === 'remote-stream') && !cameraError && (
@@ -1074,147 +1409,6 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         )}
       </div>
 
-      {/* Mini Stats Bar directly beneath this Camera (Chhote me live counts for THIS camera) */}
-      <div
-        style={{
-          marginTop: '10px',
-          background: 'rgba(15, 23, 42, 0.85)',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
-          borderRadius: '10px',
-          padding: '8px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '8px',
-        }}
-      >
-        {/* Left: IN & OUT counts for THIS specific camera */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>This Camera:</span>
-          <span
-            style={{
-              background: 'rgba(15, 23, 42, 0.65)',
-              border: '1px solid rgba(255, 255, 255, 0.12)',
-              padding: '3px 10px',
-              borderRadius: '6px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginRight: '2px' }}>IN/OUT:</span>
-            <strong style={{ color: '#10b981' }}>{_inCount}</strong>
-            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
-            <strong style={{ color: '#ef4444' }}>{_outCount}</strong>
-          </span>
-          <span
-            style={{
-              background: 'rgba(59, 130, 246, 0.15)',
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-              color: '#60a5fa',
-              padding: '3px 8px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 700,
-            }}
-          >
-            Active: {activeVehicleCount}
-          </span>
-        </div>
-
-        {/* Right: Vehicle Count for THIS specific camera (CAR, TRUCK, BUS, MOTORCYCLE IN / OUT) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-          <span
-            style={{
-              fontSize: '0.76rem',
-              background: 'rgba(59, 130, 246, 0.15)',
-              border: '1px solid rgba(59, 130, 246, 0.35)',
-              color: '#93c5fd',
-              padding: '2px 8px',
-              borderRadius: '5px',
-            }}
-          >
-            🚗 Car:{' '}
-            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.CAR?.in || 0}</strong>
-            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
-            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.CAR?.out || 0}</strong>
-            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
-          </span>
-
-          <span
-            style={{
-              fontSize: '0.76rem',
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              color: '#fca5a5',
-              padding: '2px 8px',
-              borderRadius: '5px',
-            }}
-          >
-            🚚 Truck:{' '}
-            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.TRUCK?.in || 0}</strong>
-            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
-            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.TRUCK?.out || 0}</strong>
-            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
-          </span>
-
-          <span
-            style={{
-              fontSize: '0.76rem',
-              background: 'rgba(245, 158, 11, 0.15)',
-              border: '1px solid rgba(245, 158, 11, 0.35)',
-              color: '#fcd34d',
-              padding: '2px 8px',
-              borderRadius: '5px',
-            }}
-          >
-            🚌 Bus:{' '}
-            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.BUS?.in || 0}</strong>
-            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
-            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.BUS?.out || 0}</strong>
-            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
-          </span>
-
-          <span
-            style={{
-              fontSize: '0.76rem',
-              background: 'rgba(139, 92, 246, 0.15)',
-              border: '1px solid rgba(139, 92, 246, 0.35)',
-              color: '#c4b5fd',
-              padding: '2px 8px',
-              borderRadius: '5px',
-            }}
-          >
-            🏍️ Bike:{' '}
-            <strong style={{ color: '#10b981' }}>{cameraVehicleInOut.MOTORCYCLE?.in || 0}</strong>
-            <span style={{ color: 'var(--text-secondary)', margin: '0 2px' }}>/</span>
-            <strong style={{ color: '#ef4444' }}>{cameraVehicleInOut.MOTORCYCLE?.out || 0}</strong>
-            <span style={{ fontSize: '0.66rem', opacity: 0.8, marginLeft: '3px' }}>(IN/OUT)</span>
-          </span>
-
-          {activeVehicleCount > 0 && Object.values(liveCounts).some((c) => c > 0) && (
-            <span
-              style={{
-                fontSize: '0.72rem',
-                color: '#10b981',
-                background: 'rgba(16, 185, 129, 0.1)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '2px 6px',
-                borderRadius: '4px',
-              }}
-            >
-              ● In Frame:{' '}
-              {Object.entries(liveCounts)
-                .filter(([, c]) => c > 0)
-                .map(([k, c]) => `${k}:${c}`)
-                .join(', ')}
-            </span>
-          )}
-        </div>
-      </div>
     </div>
   );
 };

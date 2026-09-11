@@ -271,9 +271,9 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
         style={{
           padding: '4px 9px',
           borderRadius: '6px',
-          background: 'rgba(59, 130, 246, 0.15)',
-          color: '#60a5fa',
-          border: '1px solid rgba(59, 130, 246, 0.3)',
+          background: '#eff6ff',
+          color: '#2563eb',
+          border: '1px solid #bfdbfe',
           fontSize: '0.78rem',
           fontWeight: 600,
           display: 'inline-flex',
@@ -289,12 +289,12 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
 
   const getVehicleColor = (type: string) => {
     const t = type.toLowerCase();
-    if (t === 'car') return '#10b981';
-    if (t === 'bus') return '#f59e0b';
-    if (t === 'truck') return '#ef4444';
-    if (t === 'motorcycle') return '#8b5cf6';
-    if (t === 'person') return '#06b6d4';
-    return '#3b82f6';
+    if (t === 'car') return '#059669';
+    if (t === 'bus') return '#d97706';
+    if (t === 'truck') return '#dc2626';
+    if (t === 'motorcycle') return '#7c3aed';
+    if (t === 'person') return '#0284c7';
+    return '#2563eb';
   };
 
   // Generate page numbers to show
@@ -315,7 +315,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
   };
 
   return (
-    <div className="glass-panel" style={{ padding: '1.25rem', marginTop: '1.5rem', borderRadius: '16px' }}>
+    <div className="glass-panel" style={{ padding: '1.25rem', marginTop: '1.5rem', borderRadius: '14px' }}>
       {/* Header Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -324,27 +324,27 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               width: '38px',
               height: '38px',
               borderRadius: '10px',
-              background: 'rgba(6, 182, 212, 0.12)',
-              border: '1px solid rgba(6, 182, 212, 0.3)',
+              background: '#ecfeff',
+              border: '1px solid #a5f3fc',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Database size={20} color="var(--accent-cyan)" />
+            <Database size={20} color="#0284c7" />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, letterSpacing: '-0.2px' }}>
-                MySQL & Real-time AI Event Logs
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, letterSpacing: '-0.2px', color: 'var(--text-primary)' }}>
+                Real-time AI Event Logs
               </h3>
               <span
                 style={{
                   fontSize: '0.74rem',
                   fontWeight: 700,
-                  color: '#34d399',
-                  background: 'rgba(16, 185, 129, 0.15)',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
+                  color: '#059669',
+                  background: '#ecfdf5',
+                  border: '1px solid #a7f3d0',
                   padding: '2px 8px',
                   borderRadius: '12px',
                 }}
@@ -372,10 +372,10 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               }
             }}
             style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              color: '#ef4444',
-              padding: '6px 14px',
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              color: '#dc2626',
+              padding: '7px 14px',
               borderRadius: '8px',
               cursor: 'pointer',
               display: 'flex',
@@ -392,10 +392,10 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
           <button
             onClick={fetchLogs}
             style={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid var(--border-color)',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
               color: 'var(--text-secondary)',
-              padding: '6px 14px',
+              padding: '7px 14px',
               borderRadius: '8px',
               cursor: 'pointer',
               display: 'flex',
@@ -420,7 +420,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '10px',
-          background: 'rgba(15, 23, 42, 0.6)',
+          background: '#f8fafc',
           border: '1px solid var(--border-color)',
           borderRadius: '10px',
           padding: '8px 12px',
@@ -441,7 +441,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#fff',
+              color: 'var(--text-primary)',
               fontSize: '0.82rem',
               outline: 'none',
               width: '100%',
@@ -462,8 +462,8 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                 setCurrentPage(1);
               }}
               style={{
-                background: 'rgba(15, 23, 42, 0.85)',
-                border: '1px solid var(--border-color)',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
                 color: 'var(--text-secondary)',
                 borderRadius: '6px',
                 padding: '4px 8px',
@@ -475,7 +475,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               <option value="ALL">All Events</option>
               <option value="IN">IN (Line Cross)</option>
               <option value="OUT">OUT (Line Cross)</option>
-              <option value="STABLE">STABLE</option>
+              <option value="DETECTION">DETECTION</option>
             </select>
           </div>
 
@@ -487,8 +487,8 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               setCurrentPage(1);
             }}
             style={{
-              background: 'rgba(15, 23, 42, 0.85)',
-              border: '1px solid var(--border-color)',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
               color: 'var(--text-secondary)',
               borderRadius: '6px',
               padding: '4px 8px',
@@ -515,9 +515,9 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                 setCurrentPage(1);
               }}
               style={{
-                background: 'rgba(15, 23, 42, 0.85)',
-                border: '1px solid var(--border-color)',
-                color: '#60a5fa',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#2563eb',
                 fontWeight: 600,
                 borderRadius: '6px',
                 padding: '4px 8px',
@@ -540,10 +540,10 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
       <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
         <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
           <thead>
-            <tr style={{ background: 'rgba(15, 23, 42, 0.9)', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
               <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>LOG ID</th>
               <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>CAMERA NAME / SOURCE</th>
-              <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#60a5fa' }}>OBJECT / TRACK ID</th>
+              <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#2563eb' }}>OBJECT / TRACK ID</th>
               <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>EVENT TYPE</th>
               <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>CONFIDENCE</th>
               <th style={{ padding: '12px 14px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>COUNT</th>
@@ -570,12 +570,12 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                   <tr
                     key={log.id}
                     style={{
-                      borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                      borderBottom: '1px solid #f1f5f9',
                       transition: 'background 0.2s ease',
                     }}
                   >
                     {/* LOG ID */}
-                    <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                    <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
                       #{String(log.id).substring(0, 9)}
                     </td>
 
@@ -585,9 +585,9 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                         style={{
                           padding: '4px 10px',
                           borderRadius: '6px',
-                          backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                          color: '#60a5fa',
-                          border: '1px solid rgba(59, 130, 246, 0.3)',
+                          backgroundColor: '#eff6ff',
+                          color: '#1d4ed8',
+                          border: '1px solid #bfdbfe',
                           fontSize: '0.82rem',
                           fontWeight: 600,
                           display: 'inline-flex',
@@ -595,7 +595,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                           gap: '6px',
                         }}
                       >
-                        <Camera size={13} color="#60a5fa" />
+                        <Camera size={13} color="#2563eb" />
                         {displayName}
                         <span style={{ fontSize: '0.74rem', opacity: 0.75, fontWeight: 400 }}>({displayLocation})</span>
                       </span>
@@ -607,9 +607,9 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                         style={{
                           padding: '4px 10px',
                           borderRadius: '6px',
-                          backgroundColor: `${vColor}20`,
+                          backgroundColor: `${vColor}15`,
                           color: vColor,
-                          border: `1px solid ${vColor}40`,
+                          border: `1px solid ${vColor}35`,
                           fontSize: '0.82rem',
                           fontWeight: 700,
                         }}
@@ -622,12 +622,12 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                     <td style={{ padding: '12px 14px' }}>{getEventBadge(log.event)}</td>
 
                     {/* CONFIDENCE */}
-                    <td style={{ padding: '12px 14px', color: '#10b981', fontWeight: 700 }}>
+                    <td style={{ padding: '12px 14px', color: '#059669', fontWeight: 700 }}>
                       {Math.round((log.confidence || 0.95) * 100)}%
                     </td>
 
                     {/* COUNT */}
-                    <td style={{ padding: '12px 14px', fontWeight: 700 }}>{log.count || 1}</td>
+                    <td style={{ padding: '12px 14px', fontWeight: 700, color: 'var(--text-primary)' }}>{log.count || 1}</td>
 
                     {/* DETECTED AT */}
                     <td style={{ padding: '12px 14px', color: 'var(--text-secondary)', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
@@ -657,14 +657,14 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
         {/* Record count summary */}
         <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
           Showing{' '}
-          <strong style={{ color: '#fff' }}>
+          <strong style={{ color: 'var(--text-primary)' }}>
             {totalEntries === 0 ? 0 : (currentPage - 1) * (pageSize === -1 ? totalEntries : pageSize) + 1}
           </strong>{' '}
           to{' '}
-          <strong style={{ color: '#fff' }}>
+          <strong style={{ color: 'var(--text-primary)' }}>
             {pageSize === -1 ? totalEntries : Math.min(currentPage * pageSize, totalEntries)}
           </strong>{' '}
-          of <strong style={{ color: '#60a5fa' }}>{totalEntries}</strong> entries
+          of <strong style={{ color: '#2563eb' }}>{totalEntries}</strong> entries
           {totalDbCount > totalEntries && ` (${totalDbCount} in MySQL DB)`}
         </div>
 
@@ -679,7 +679,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                 padding: '5px 8px',
                 borderRadius: '6px',
                 border: '1px solid var(--border-color)',
-                background: 'rgba(15, 23, 42, 0.8)',
+                background: '#ffffff',
                 color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)',
                 cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                 display: 'flex',
@@ -698,7 +698,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                 padding: '5px 8px',
                 borderRadius: '6px',
                 border: '1px solid var(--border-color)',
-                background: 'rgba(15, 23, 42, 0.8)',
+                background: '#ffffff',
                 color: currentPage === 1 ? 'var(--text-muted)' : 'var(--text-secondary)',
                 cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
                 display: 'flex',
@@ -728,9 +728,9 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                   style={{
                     padding: '4px 10px',
                     borderRadius: '6px',
-                    border: isCurrent ? '1px solid #3b82f6' : '1px solid var(--border-color)',
-                    background: isCurrent ? 'linear-gradient(135deg, #2563eb, #3b82f6)' : 'rgba(15, 23, 42, 0.8)',
-                    color: isCurrent ? '#fff' : 'var(--text-secondary)',
+                    border: isCurrent ? '1px solid #0f172a' : '1px solid var(--border-color)',
+                    background: isCurrent ? '#0f172a' : '#ffffff',
+                    color: isCurrent ? '#ffffff' : 'var(--text-secondary)',
                     fontWeight: isCurrent ? 700 : 500,
                     cursor: 'pointer',
                     fontSize: '0.82rem',
@@ -751,7 +751,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                 padding: '5px 8px',
                 borderRadius: '6px',
                 border: '1px solid var(--border-color)',
-                background: 'rgba(15, 23, 42, 0.8)',
+                background: '#ffffff',
                 color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)',
                 cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                 display: 'flex',
@@ -772,7 +772,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                 padding: '5px 8px',
                 borderRadius: '6px',
                 border: '1px solid var(--border-color)',
-                background: 'rgba(15, 23, 42, 0.8)',
+                background: '#ffffff',
                 color: currentPage === totalPages ? 'var(--text-muted)' : 'var(--text-secondary)',
                 cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
                 display: 'flex',
