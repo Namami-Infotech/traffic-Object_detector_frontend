@@ -56,11 +56,11 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [isLocalStreamActive, setIsLocalStreamActive] = useState<boolean>(false);
 
-  // Virtual Line & Tracking Settings State (Default VERTICAL - Khadi Line)
   const isRtspStream = Boolean(
     selectedCameraUrl &&
     (selectedCameraUrl.startsWith('rtsp://') || selectedCameraUrl.startsWith('rtsps://') || cameraType === 'IP_RTSP')
   );
+  const cameraIp = (selectedCameraUrl && (selectedCameraUrl.match(/@([0-9.]+):/)?.[1] || selectedCameraUrl.match(/\/\/([0-9.]+):/)?.[1])) || '192.168.1.23';
   const mjpegStreamUrl = isRtspStream && cameraId ? `${API_BASE_URL || ''}/api/v1/cctv/cameras/${cameraId}/stream` : '';
 
   const [lineOrientation, setLineOrientation] = useState<'VERTICAL' | 'HORIZONTAL'>('HORIZONTAL');
@@ -1335,8 +1335,11 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
           <div style={{ position: 'absolute', textAlign: 'center', padding: '1.2rem', color: 'var(--text-secondary)', zIndex: 5 }}>
             <Radio size={28} color="#10b981" style={{ margin: '0 auto 8px', animation: 'pulse 1.5s infinite' }} />
             <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Connecting to CP PLUS Live Stream...</h4>
-            <p style={{ fontSize: '0.78rem', maxWidth: '320px', margin: '0 auto 10px', lineHeight: 1.4 }}>
-              Receiving live stream from camera (<strong>192.168.1.23</strong>).
+            <p style={{ fontSize: '0.78rem', maxWidth: '320px', margin: '0 auto 6px', lineHeight: 1.4 }}>
+              Receiving live stream from camera (<strong>{cameraIp}</strong>).
+            </p>
+            <p style={{ fontSize: '0.7rem', color: '#94a3b8', maxWidth: '300px', margin: '0 auto 10px', lineHeight: 1.3 }}>
+              Ensure local relay bridge (<code>start_relay.bat</code>) is running on the local PC.
             </p>
             <button
               onClick={() => {
