@@ -113,7 +113,12 @@ export function App() {
             const combined = [...newCams, ...prev];
             return combined;
           });
-          const ipCam = json.data.find((c: any) => c.rtspUrl && c.rtspUrl.includes('192.168.1.23'));
+          const ipCam = json.data.find(
+            (c: any) =>
+              c.rtspUrl &&
+              c.rtspUrl !== 'webcam' &&
+              (c.rtspUrl.startsWith('rtsp://') || c.rtspUrl.startsWith('rtsps://') || c.cameraType === 'IP_RTSP' || c.cameraType === 'DVR_ANALOG')
+          );
           if (ipCam) {
             setActiveCameraId(ipCam.id);
           }

@@ -60,7 +60,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
     selectedCameraUrl &&
     (selectedCameraUrl.startsWith('rtsp://') || selectedCameraUrl.startsWith('rtsps://') || cameraType === 'IP_RTSP')
   );
-  const cameraIp = (selectedCameraUrl && (selectedCameraUrl.match(/@([0-9.]+):/)?.[1] || selectedCameraUrl.match(/\/\/([0-9.]+):/)?.[1])) || '192.168.1.23';
+  const cameraIp = (selectedCameraUrl && (selectedCameraUrl.match(/@([0-9.]+):/)?.[1] || selectedCameraUrl.match(/\/\/([0-9.]+):/)?.[1])) || cameraName || 'IP Camera';
   const mjpegStreamUrl = isRtspStream && cameraId ? `${API_BASE_URL || ''}/api/v1/cctv/cameras/${cameraId}/stream` : '';
 
   const [lineOrientation, setLineOrientation] = useState<'VERTICAL' | 'HORIZONTAL'>('HORIZONTAL');
@@ -1334,7 +1334,7 @@ export const CctvViewer: React.FC<CctvViewerProps> = ({
         {!hasRemoteFeed && !remoteImageSrc && isRtspStream && !cameraError && (
           <div style={{ position: 'absolute', textAlign: 'center', padding: '1.2rem', color: 'var(--text-secondary)', zIndex: 5 }}>
             <Radio size={28} color="#10b981" style={{ margin: '0 auto 8px', animation: 'pulse 1.5s infinite' }} />
-            <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Connecting to CP PLUS Live Stream...</h4>
+            <h4 style={{ color: '#fff', fontSize: '0.9rem', marginBottom: '4px' }}>Connecting to Live Camera Stream...</h4>
             <p style={{ fontSize: '0.78rem', maxWidth: '320px', margin: '0 auto 6px', lineHeight: 1.4 }}>
               Receiving live stream from camera (<strong>{cameraIp}</strong>).
             </p>
