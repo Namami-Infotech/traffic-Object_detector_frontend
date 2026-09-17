@@ -2,7 +2,9 @@ import React from 'react';
 import { Car, Bus, Truck, Bike, Users, ArrowDownRight, ArrowUpRight, Scale, Activity } from 'lucide-react';
 import { VehicleStatCard } from './VehicleStatCard';
 import { TrafficDensityBadge } from './TrafficDensityBadge';
+import { ParkingAvailabilityCard } from './ParkingAvailabilityCard';
 import { calculateTrafficDensity } from '../../../app/config/traffic.config';
+import type { CameraItem } from '../../camera/types/camera.types';
 
 export interface TrafficAnalyticsProps {
   counts: Record<string, number>;
@@ -10,6 +12,14 @@ export interface TrafficAnalyticsProps {
   inCount?: number;
   outCount?: number;
   activeCount?: number;
+  cameras?: CameraItem[];
+  cameraStats?: Record<string, {
+    in: number;
+    out: number;
+    vehicles?: Record<string, number>;
+    vehicleInOut?: Record<string, { in: number; out: number }>;
+  }>;
+  cameraLiveVehicleInOut?: Record<string, Record<string, { in: number; out: number }>>;
 }
 
 export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
@@ -18,6 +28,9 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
   inCount = 0,
   outCount = 0,
   activeCount = 0,
+  cameras: _cameras = [],
+  cameraStats: _cameraStats = {},
+  cameraLiveVehicleInOut: _cameraLiveVehicleInOut = {},
 }) => {
   const density = calculateTrafficDensity(activeCount);
 
@@ -285,7 +298,10 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
         </div>
       </div>
 
-      {/* 2. Individual Vehicle Stats Grid */}
+      {/* 2. Smart Parking Availability Card (100 Slots) */}
+      <ParkingAvailabilityCard totalSlots={100} vehicleInOut={vehicleInOut} />
+
+      {/* 3. Individual Vehicle Stats Grid */}
       <div
         style={{
           display: 'grid',

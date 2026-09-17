@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import * as cocoSsd from '@tensorflow-models/coco-ssd';
-import { Radio, MapPin, Navigation } from 'lucide-react';
+import { Radio, MapPin, Navigation, ArrowDownUp, ChevronDown, X } from 'lucide-react';
 import { useFullscreen } from '../hooks/useFullscreen';
 import { useCameraStream } from '../hooks/useCameraStream';
 import { useDetectionTracker } from '../../detection/hooks/useDetectionTracker';
@@ -13,6 +13,14 @@ import { CameraControls } from './CameraControls';
 import { VirtualLineControl } from './VirtualLineControl';
 import type { CameraType, LineOrientation } from '../types/camera.types';
 import type { DetectionUpdateData } from '../../detection/types/detection.types';
+
+const CAMERA_VEHICLES = [
+  { key: 'CAR', label: 'Cars', emoji: '🚗', bg: '#f0fdf4', border: '#bbf7d0', textColor: '#166534' },
+  { key: 'BUS', label: 'Buses', emoji: '🚌', bg: '#fffbeb', border: '#fef08a', textColor: '#854d0e' },
+  { key: 'TRUCK', label: 'Trucks', emoji: '🚚', bg: '#fef2f2', border: '#fecaca', textColor: '#991b1b' },
+  { key: 'MOTORCYCLE', label: 'Motorcycles', emoji: '🏍️', bg: '#f5f3ff', border: '#e9d5ff', textColor: '#5b21b6' },
+  { key: 'PERSON', label: 'Pedestrians', emoji: '🚶', bg: '#ecfeff', border: '#a5f3fc', textColor: '#155e75' },
+] as const;
 
 export interface CameraCardProps {
   selectedCameraUrl: string;
@@ -43,9 +51,10 @@ export const CameraCard: React.FC<CameraCardProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
-  const [lineOrientation, setLineOrientation] = useState<LineOrientation>('HORIZONTAL');
+  const [lineOrientation, setLineOrientation] = useState<LineOrientation>('VERTICAL');
   const [linePositionPercent, setLinePositionPercent] = useState<number>(50);
   const [showTrajectories] = useState<boolean>(true);
+  const [isInOutSliderOpen, setIsInOutSliderOpen] = useState<boolean>(false);
 
   // Initial counts from DB
   const [initialIn, setInitialIn] = useState<number>(0);
@@ -197,7 +206,7 @@ export const CameraCard: React.FC<CameraCardProps> = ({
           gap: '10px',
         }}
       >
-        {/* Left Side: Camera Name, Location, Lane */}
+        {/* Left Side: Camera Name & Location */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Radio color="var(--accent-red)" size={18} />
@@ -231,45 +240,185 @@ export const CameraCard: React.FC<CameraCardProps> = ({
               {location}
             </span>
           )}
-          {lane && (
-            <span
-              style={{
-                fontSize: '0.75rem',
-                color: '#10b981',
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '2px 7px',
-                borderRadius: '6px',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontWeight: 500,
-              }}
-            >
-              <Navigation size={12} color="#10b981" />
-              {lane} {direction ? `(${direction})` : ''}
-            </span>
-          )}
         </div>
 
-        {/* Right Side: Status Badges & Controls */}
+        {/* Right Side: Action Controls (Reconnect, Full Screen) */}
+        <CameraControls
+          isFullscreen={isFullscreen}
+          isCameraRunning={isCameraRunning}
+          onToggleFullscreen={toggleFullscreen}
+          onReconnect={retryStream}
+          showReconnect={isRtspStream}
+        />
+      </div>
+
+      {/* Camera Live Metrics & Navigation Bar (Directly Above Camera Feed) */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginBottom: isInOutSliderOpen ? '0.35rem' : '0.65rem',
+          padding: '5px 10px',
+          background: isFullscreen ? 'rgba(255, 255, 255, 0.05)' : '#f8fafc',
+          borderRadius: '8px',
+          border: isFullscreen ? '1px solid rgba(255, 255, 255, 0.1)' : '1px solid var(--border-color)',
+          transition: 'margin-bottom 0.25s ease',
+        }}
+      >
+        {/* Left Side: Compass Badge + View IN/OUT Slider Button */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <CameraStatus
-            inCount={inCount}
-            outCount={outCount}
-            activeVehicleCount={activeVehicleCount}
-            liveCounts={liveCounts}
-            vehicleInOut={vehicleInOut}
-            hasRemoteFeed={hasRemoteFeed}
-            isFullscreen={isFullscreen}
-          />
-          <CameraControls
-            isFullscreen={isFullscreen}
-            isCameraRunning={isCameraRunning}
-            onToggleFullscreen={toggleFullscreen}
-            onReconnect={retryStream}
-            showReconnect={isRtspStream}
-          />
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: '#059669',
+              background: isFullscreen ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              padding: '3px 8px',
+              borderRadius: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+            title="Camera Lane & Compass Direction"
+          >
+            <Navigation size={13} color="#10b981" />
+            {lane || 'Lane 1'} {direction ? `(${direction})` : ''}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => setIsInOutSliderOpen((prev) => !prev)}
+            style={{
+              fontSize: '0.74rem',
+              background: isInOutSliderOpen
+                ? 'rgba(59, 130, 246, 0.2)'
+                : (isFullscreen ? 'rgba(255, 255, 255, 0.08)' : '#eff6ff'),
+              color: isFullscreen && !isInOutSliderOpen ? '#cbd5e1' : '#2563eb',
+              border: isInOutSliderOpen ? '1px solid #3b82f6' : '1px solid #bfdbfe',
+              padding: '3px 9px',
+              borderRadius: '6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            title={isInOutSliderOpen ? 'Close IN/OUT Slider' : 'View IN/OUT Slider'}
+          >
+            <ArrowDownUp size={13} color={isInOutSliderOpen ? '#2563eb' : '#3b82f6'} />
+            <span>View IN/OUT</span>
+            <ChevronDown
+              size={13}
+              style={{
+                transform: isInOutSliderOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.25s ease',
+              }}
+            />
+          </button>
+        </div>
+
+        {/* Right Side: Live Metrics Badges (IN/OUT, Net Occ, Active, Live) */}
+        <CameraStatus
+          inCount={inCount}
+          outCount={outCount}
+          activeVehicleCount={activeVehicleCount}
+          liveCounts={liveCounts}
+          vehicleInOut={vehicleInOut}
+          hasRemoteFeed={hasRemoteFeed}
+          isFullscreen={isFullscreen}
+        />
+      </div>
+
+      {/* Sliding IN/OUT Breakdown Slider Panel */}
+      <div
+        style={{
+          maxHeight: isInOutSliderOpen ? '200px' : '0px',
+          opacity: isInOutSliderOpen ? 1 : 0,
+          transform: isInOutSliderOpen ? 'translateY(0)' : 'translateY(-6px)',
+          transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          overflow: 'hidden',
+          marginBottom: isInOutSliderOpen ? '0.65rem' : '0px',
+          pointerEvents: isInOutSliderOpen ? 'auto' : 'none',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            flexWrap: 'wrap',
+            padding: '7px 10px',
+            background: isFullscreen ? 'rgba(15, 23, 42, 0.85)' : '#ffffff',
+            borderRadius: '8px',
+            border: isFullscreen ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid #e2e8f0',
+            boxShadow: '0 3px 10px rgba(0, 0, 0, 0.05)',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              color: isFullscreen ? '#94a3b8' : '#64748b',
+              marginRight: '2px',
+            }}
+          >
+            Vehicle Breakdown:
+          </span>
+
+          {CAMERA_VEHICLES.map(({ key, label, emoji, bg, border, textColor }) => {
+            const countData = vehicleInOut[key] || { in: 0, out: 0 };
+            return (
+              <span
+                key={key}
+                style={{
+                  fontSize: '0.72rem',
+                  background: isFullscreen ? 'rgba(255, 255, 255, 0.08)' : bg,
+                  border: `1px solid ${isFullscreen ? 'rgba(255, 255, 255, 0.18)' : border}`,
+                  color: isFullscreen ? '#f1f5f9' : textColor,
+                  padding: '3px 8px',
+                  borderRadius: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                }}
+                title={`${label}: IN ${countData.in} | OUT ${countData.out}`}
+              >
+                <span>{emoji}</span>
+                <span style={{ opacity: 0.9 }}>{label}:</span>
+                <strong style={{ color: '#059669' }}>IN {countData.in}</strong>
+                <span style={{ color: 'var(--text-muted)', opacity: 0.4 }}>|</span>
+                <strong style={{ color: '#dc2626' }}>OUT {countData.out}</strong>
+              </span>
+            );
+          })}
+
+          {/* Close button */}
+          <button
+            type="button"
+            onClick={() => setIsInOutSliderOpen(false)}
+            style={{
+              marginLeft: 'auto',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: isFullscreen ? '#94a3b8' : '#64748b',
+              padding: '3px 6px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              borderRadius: '4px',
+            }}
+            title="Close slider"
+          >
+            <X size={14} />
+          </button>
         </div>
       </div>
 

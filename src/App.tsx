@@ -24,6 +24,9 @@ export function App() {
   const [cameraOutMap, setCameraOutMap] = useState<Record<string, number>>({});
   const [cameraActiveMap, setCameraActiveMap] = useState<Record<string, number>>({});
   const [cameraLiveCountsMap, setCameraLiveCountsMap] = useState<Record<string, Record<string, number>>>({});
+  const [cameraVehicleInOutMap, setCameraVehicleInOutMap] = useState<
+    Record<string, Record<string, { in: number; out: number }>>
+  >({});
   const [liveVehicleInOut, setLiveVehicleInOut] = useState<Record<string, { in: number; out: number }>>({
     CAR: { in: 0, out: 0 },
     TRUCK: { in: 0, out: 0 },
@@ -45,6 +48,7 @@ export function App() {
     displayActiveCount,
     displayLiveCounts,
     mergedVehicleInOut,
+    dbCameraStats,
     refetch: refetchDbAnalytics,
   } = useTrafficAnalytics({
     cameraInMap,
@@ -118,6 +122,18 @@ export function App() {
             return { ...prev, [v]: { ...current, in: current.in + 1 } };
           });
 
+          setCameraVehicleInOutMap((prev) => {
+            const camMap = prev[camId] || {};
+            const cur = camMap[v] || { in: 0, out: 0 };
+            return {
+              ...prev,
+              [camId]: {
+                ...camMap,
+                [v]: { ...cur, in: cur.in + 1 },
+              },
+            };
+          });
+
           newEntries.push({
             id: `in-${camId}-${evt.id}-${evt.timestamp}`,
             cameraId: camId,
@@ -139,6 +155,18 @@ export function App() {
           setLiveVehicleInOut((prev) => {
             const current = (prev as any)[v] || { in: 0, out: 0 };
             return { ...prev, [v]: { ...current, out: current.out + 1 } };
+          });
+
+          setCameraVehicleInOutMap((prev) => {
+            const camMap = prev[camId] || {};
+            const cur = camMap[v] || { in: 0, out: 0 };
+            return {
+              ...prev,
+              [camId]: {
+                ...camMap,
+                [v]: { ...cur, out: cur.out + 1 },
+              },
+            };
           });
 
           newEntries.push({
@@ -228,6 +256,9 @@ export function App() {
               inCount={displayInCount}
               outCount={displayOutCount}
               activeCount={displayActiveCount}
+              cameras={cameras}
+              cameraStats={dbCameraStats}
+              cameraLiveVehicleInOut={cameraVehicleInOutMap}
             />
           </div>
         </div>

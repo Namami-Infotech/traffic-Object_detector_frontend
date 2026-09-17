@@ -1,5 +1,5 @@
 import React from 'react';
-import { VEHICLE_META } from '../../../constants/vehicle.constants';
+
 
 export interface CameraStatusProps {
   inCount: number;
@@ -16,15 +16,11 @@ export const CameraStatus: React.FC<CameraStatusProps> = ({
   outCount,
   activeVehicleCount,
   liveCounts,
-  vehicleInOut,
+  vehicleInOut: _vehicleInOut,
   hasRemoteFeed = false,
   isFullscreen = false,
 }) => {
-  // Only show vehicle categories that actually have detections (in > 0 or out > 0)
-  const activeVehicleKeys = (['CAR', 'TRUCK', 'BUS', 'MOTORCYCLE', 'PERSON'] as const).filter((vKey) => {
-    const data = vehicleInOut[vKey];
-    return (data?.in || 0) > 0 || (data?.out || 0) > 0;
-  });
+
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -102,34 +98,6 @@ export const CameraStatus: React.FC<CameraStatusProps> = ({
         <strong>{activeVehicleCount}</strong>
       </span>
 
-      {/* 4. Active Vehicle Breakdown Badges (Only non-zero counts) */}
-      {activeVehicleKeys.map((vKey) => {
-        const meta = VEHICLE_META[vKey];
-        const data = vehicleInOut[vKey] || { in: 0, out: 0 };
-        return (
-          <span
-            key={vKey}
-            style={{
-              fontSize: '0.74rem',
-              background: isFullscreen ? 'rgba(255, 255, 255, 0.08)' : (meta?.bg || '#f8fafc'),
-              border: `1px solid ${isFullscreen ? 'rgba(255, 255, 255, 0.15)' : (meta?.border || 'var(--border-color)')}`,
-              color: isFullscreen ? '#ffffff' : (meta?.color || 'inherit'),
-              padding: '3px 8px',
-              borderRadius: '6px',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontWeight: 600,
-            }}
-            title={`${meta?.label || vKey}: IN ${data.in} | OUT ${data.out}`}
-          >
-            <span>{meta?.emoji || '🚗'}</span>
-            <strong style={{ color: '#059669' }}>{data.in}</strong>
-            <span style={{ color: 'var(--text-muted)' }}>/</span>
-            <strong style={{ color: '#dc2626' }}>{data.out}</strong>
-          </span>
-        );
-      })}
 
       {/* 5. Live Feed Pill */}
       {hasRemoteFeed && (

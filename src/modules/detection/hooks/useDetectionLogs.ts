@@ -47,16 +47,37 @@ export function useDetectionLogs({
     return () => clearInterval(interval);
   }, [fetchDbLogs]);
 
-  // Merge Live Session Logs + DB Logs with deduplication
+  // Merge Live Session Logs + DB Logs with robust deduplication
   const mergedLogs = useMemo(() => {
-    const map = new Map<string, DetectionLogEntry>();
-    liveLogs.forEach((l) => map.set(l.id, l));
+    const fingerprintMap = new Map<string, DetectionLogEntry>();
+
+    // Helper to generate a unique fingerprint for a detection event
+    const getFingerprint = (l: DetectionLogEntry): string => {
+      const timeMs = new Date(l.detectedAt).getTime();
+      // Round to 5-second bucket to match client liveLog timestamp with DB insert timestamp
+      const timeBucket = Math.round(timeMs / 5000);
+      const trackKey = l.trackId !== undefined && l.trackId !== null ? l.trackId : 'notrack';
+      const camKey = l.cameraId || l.cameraName || 'cam';
+      return `${camKey}_${trackKey}_${l.event}_${l.vehicleType}_${timeBucket}`;
+    };
+
+    // 1. Add DB logs first (these have full camera relationships & permanent database IDs)
     dbLogs.forEach((l) => {
-      if (!map.has(l.id)) {
-        map.set(l.id, l);
+      const fp = getFingerprint(l);
+      if (!fingerprintMap.has(fp)) {
+        fingerprintMap.set(fp, l);
       }
     });
-    return Array.from(map.values()).sort(
+
+    // 2. Add Live logs only if the event hasn't settled into dbLogs yet
+    liveLogs.forEach((l) => {
+      const fp = getFingerprint(l);
+      if (!fingerprintMap.has(fp)) {
+        fingerprintMap.set(fp, l);
+      }
+    });
+
+    return Array.from(fingerprintMap.values()).sort(
       (a, b) => new Date(b.detectedAt).getTime() - new Date(a.detectedAt).getTime()
     );
   }, [liveLogs, dbLogs]);

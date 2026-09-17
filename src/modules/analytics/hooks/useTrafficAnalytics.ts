@@ -36,6 +36,10 @@ export function useTrafficAnalytics({
     PERSON: { in: 0, out: 0 },
   });
 
+  const [dbCameraStats, setDbCameraStats] = useState<
+    Record<string, { in: number; out: number; vehicles?: Record<string, number>; vehicleInOut?: Record<string, { in: number; out: number }> }>
+  >({});
+
   const fetchGlobalDbAnalytics = useCallback(async () => {
     try {
       const data = await analyticsService.getAnalytics();
@@ -47,6 +51,9 @@ export function useTrafficAnalytics({
         });
         if (data.vehicleInOut) {
           setDbGlobalVehicleInOut(data.vehicleInOut);
+        }
+        if (data.cameraStats) {
+          setDbCameraStats(data.cameraStats);
         }
       }
     } catch (err) {
@@ -134,6 +141,7 @@ export function useTrafficAnalytics({
     displayActiveCount: displayMetrics.activeCount,
     displayLiveCounts: displayMetrics.liveCounts,
     mergedVehicleInOut,
+    dbCameraStats,
     refetch: fetchGlobalDbAnalytics,
   };
 }

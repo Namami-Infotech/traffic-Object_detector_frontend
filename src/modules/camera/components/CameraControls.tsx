@@ -17,7 +17,7 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   showReconnect = false,
 }) => {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
       {showReconnect && onReconnect && (
         <button
           type="button"
