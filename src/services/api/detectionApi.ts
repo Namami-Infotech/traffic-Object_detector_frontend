@@ -6,6 +6,8 @@ export interface DetectionLogInput {
   vehicleType: string;
   trackId?: number;
   event: 'IN' | 'OUT' | 'STABLE' | 'DETECTION';
+  plateNumber?: string;
+  plateConfidence?: number;
   confidence?: number;
   count?: number;
   inCount?: number;

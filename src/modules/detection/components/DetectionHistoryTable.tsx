@@ -252,6 +252,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               <th style={{ padding: '8px 12px' }}>Timestamp</th>
               <th style={{ padding: '8px 12px' }}>Camera</th>
               <th style={{ padding: '8px 12px' }}>Vehicle Class</th>
+              <th style={{ padding: '8px 12px' }}>Number Plate (ANPR)</th>
               <th style={{ padding: '8px 12px' }}>Track ID</th>
               <th style={{ padding: '8px 12px' }}>Event</th>
               <th style={{ padding: '8px 12px' }}>Confidence</th>
@@ -260,7 +261,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
           <tbody>
             {logs.length === 0 ? (
               <tr>
-                <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                   No detection logs found.
                 </td>
               </tr>
@@ -319,6 +320,57 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                         <span>{vMeta.emoji}</span>
                         <span>{vMeta.label}</span>
                       </span>
+                    </td>
+
+                    <td style={{ padding: '10px 12px' }}>
+                      {log.plateNumber ? (
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            background: '#ffffff',
+                            border: '1.5px solid #1e293b',
+                            borderRadius: '4px',
+                            padding: '2px 8px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                            fontFamily: 'monospace',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.6px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              background: '#0284c7',
+                              color: '#ffffff',
+                              fontSize: '0.62rem',
+                              fontWeight: 800,
+                              padding: '1px 3px',
+                              borderRadius: '2px',
+                              marginRight: '6px',
+                              lineHeight: 1,
+                            }}
+                          >
+                            IND
+                          </span>
+                          <span style={{ color: '#0f172a' }}>{log.plateNumber}</span>
+                          {log.plateConfidence && (
+                            <span
+                              title={`OCR Accuracy: ${Math.round(log.plateConfidence * 100)}%`}
+                              style={{
+                                marginLeft: '6px',
+                                fontSize: '0.65rem',
+                                color: '#059669',
+                                fontWeight: 600,
+                              }}
+                            >
+                              {Math.round(log.plateConfidence * 100)}%
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                      )}
                     </td>
 
                     <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>

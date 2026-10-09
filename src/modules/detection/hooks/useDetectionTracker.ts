@@ -7,6 +7,7 @@ import { socketClient } from '../../../services/socket/socketClient';
 import { SOCKET_EVENTS } from '../../../services/socket/socketEvents';
 import { TRAFFIC_CONFIG, calculateTrafficDensity } from '../../../app/config/traffic.config';
 import type { LineConfig, DetectionUpdateData } from '../types/detection.types';
+import { plateRecognitionService } from '../services/plateRecognitionService';
 
 export interface UseDetectionTrackerOptions {
   cameraId: string;
@@ -46,6 +47,7 @@ export function useDetectionTracker({
   const outCountRef = useRef<number>(initialOutCount);
   const lastDetectTimeRef = useRef<number>(0);
   const reqAnimRef = useRef<number | null>(null);
+  const scannedTrackIdsRef = useRef<Set<number>>(new Set());
 
   const [inCount, setInCount] = useState<number>(initialInCount);
   const [outCount, setOutCount] = useState<number>(initialOutCount);
@@ -176,6 +178,8 @@ export function useDetectionTracker({
         setInCount(currentIn);
         inEvents.forEach((evt) => {
           updateVehicleTally(evt.label, 'IN');
+
+          // Log standard line crossing event
           detectionService.logEvent({
             cameraId: cameraId || 'default-webcam',
             vehicleType: (evt.label || 'car').toUpperCase(),
@@ -186,6 +190,34 @@ export function useDetectionTracker({
             inCount: currentIn,
             outCount: outCountRef.current,
           });
+
+          // Trigger asynchronous ANPR plate recognition on the vehicle
+          const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
+          if (activeSource && !scannedTrackIdsRef.current.has(evt.id)) {
+            scannedTrackIdsRef.current.add(evt.id);
+            const trackedObj = objects.find((o) => o.id === evt.id);
+            if (trackedObj && trackedObj.bbox) {
+              const plateRoiCanvas = plateRecognitionService.cropPlateRegion(activeSource, trackedObj.bbox);
+              if (plateRoiCanvas) {
+                plateRecognitionService.recognizePlate(plateRoiCanvas).then((plateRes) => {
+                  if (plateRes.plateNumber) {
+                    detectionService.logEvent({
+                      cameraId: cameraId || 'default-webcam',
+                      vehicleType: (evt.label || 'car').toUpperCase(),
+                      trackId: evt.id,
+                      event: 'IN',
+                      plateNumber: plateRes.formattedPlate || plateRes.plateNumber,
+                      plateConfidence: plateRes.confidence,
+                      confidence: (evt as any).score || 0.95,
+                      count: 1,
+                      inCount: currentIn,
+                      outCount: outCountRef.current,
+                    });
+                  }
+                });
+              }
+            }
+          }
         });
       }
 
@@ -196,6 +228,7 @@ export function useDetectionTracker({
         setOutCount(currentOut);
         outEvents.forEach((evt) => {
           updateVehicleTally(evt.label, 'OUT');
+
           detectionService.logEvent({
             cameraId: cameraId || 'default-webcam',
             vehicleType: (evt.label || 'car').toUpperCase(),
@@ -206,6 +239,34 @@ export function useDetectionTracker({
             inCount: inCountRef.current,
             outCount: currentOut,
           });
+
+          // Trigger asynchronous ANPR plate recognition on the vehicle
+          const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
+          if (activeSource && !scannedTrackIdsRef.current.has(evt.id)) {
+            scannedTrackIdsRef.current.add(evt.id);
+            const trackedObj = objects.find((o) => o.id === evt.id);
+            if (trackedObj && trackedObj.bbox) {
+              const plateRoiCanvas = plateRecognitionService.cropPlateRegion(activeSource, trackedObj.bbox);
+              if (plateRoiCanvas) {
+                plateRecognitionService.recognizePlate(plateRoiCanvas).then((plateRes) => {
+                  if (plateRes.plateNumber) {
+                    detectionService.logEvent({
+                      cameraId: cameraId || 'default-webcam',
+                      vehicleType: (evt.label || 'car').toUpperCase(),
+                      trackId: evt.id,
+                      event: 'OUT',
+                      plateNumber: plateRes.formattedPlate || plateRes.plateNumber,
+                      plateConfidence: plateRes.confidence,
+                      confidence: (evt as any).score || 0.95,
+                      count: 1,
+                      inCount: inCountRef.current,
+                      outCount: currentOut,
+                    });
+                  }
+                });
+              }
+            }
+          }
         });
       }
 

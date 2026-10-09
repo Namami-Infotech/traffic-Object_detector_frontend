@@ -88,6 +88,7 @@ export function useDetectionLogs({
       const matchesSearch =
         !searchTerm ||
         log.vehicleType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (log.plateNumber && log.plateNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (log.cameraName && log.cameraName.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (log.location && log.location.toLowerCase().includes(searchTerm.toLowerCase()));
 

@@ -8,12 +8,14 @@ import { useCameraList } from './modules/camera/hooks/useCameraList';
 import { TrafficAnalytics } from './modules/analytics/components/TrafficAnalytics';
 import { useTrafficAnalytics } from './modules/analytics/hooks/useTrafficAnalytics';
 import { DetectionHistoryTable } from './modules/detection/components/DetectionHistoryTable';
+import { PlateScannerModal } from './modules/detection/components/PlateScannerModal';
 import type { DetectionUpdateData, DetectionLogEntry } from './modules/detection/types/detection.types';
 import { socketClient } from './services/socket/socketClient';
 
 export function App() {
   const [viewMode] = useState<'GRID' | 'SINGLE'>('GRID');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [isPlateModalOpen, setIsPlateModalOpen] = useState<boolean>(false);
   const [isAiLoading, setIsAiLoading] = useState<boolean>(true);
 
   // Modular Camera List Hook
@@ -208,6 +210,7 @@ export function App() {
       {/* Header Navigation */}
       <Navbar
         onOpenAddCamera={() => setIsModalOpen(true)}
+        onOpenPlateScanner={() => setIsPlateModalOpen(true)}
         activeCameraName={activeCamera.cameraName}
         isAiLoading={isAiLoading}
       />
@@ -272,6 +275,14 @@ export function App() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onCameraAdded={addCamera}
+      />
+
+      {/* ANPR License Plate Scanner Modal */}
+      <PlateScannerModal
+        isOpen={isPlateModalOpen}
+        onClose={() => setIsPlateModalOpen(false)}
+        onPlateSaved={() => refetchDbAnalytics()}
+        activeCameraId={activeCameraId}
       />
     </div>
   );

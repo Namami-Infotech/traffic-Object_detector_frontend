@@ -52,6 +52,8 @@ export interface DetectionLogEntry {
     direction?: string;
   };
   vehicleType: string;
+  plateNumber?: string | null;
+  plateConfidence?: number | null;
   trackId?: number;
   event: 'IN' | 'OUT' | 'STABLE' | 'DETECTION';
   confidence: number;

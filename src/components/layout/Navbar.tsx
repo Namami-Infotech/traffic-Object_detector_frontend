@@ -1,13 +1,14 @@
 import React from 'react';
-import { Camera } from 'lucide-react';
+import { Camera, Scan } from 'lucide-react';
 
 export interface NavbarProps {
   onOpenAddCamera: () => void;
+  onOpenPlateScanner?: () => void;
   activeCameraName?: string;
   isAiLoading?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAddCamera }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenAddCamera, onOpenPlateScanner }) => {
   return (
     <header className="glass-panel navbar-header">
       <div className="navbar-brand">
@@ -35,6 +36,31 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAddCamera }) => {
       </div>
 
       <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {onOpenPlateScanner && (
+          <button
+            type="button"
+            onClick={onOpenPlateScanner}
+            style={{
+              background: '#0284c7',
+              color: '#ffffff',
+              border: 'none',
+              padding: '9px 16px',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '0.88rem',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+            }}
+          >
+            <Scan size={16} />
+            ANPR Plate Scanner
+          </button>
+        )}
+
         <button
           type="button"
           onClick={onOpenAddCamera}
@@ -61,3 +87,4 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAddCamera }) => {
     </header>
   );
 };
+
