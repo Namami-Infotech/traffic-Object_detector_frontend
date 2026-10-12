@@ -2,14 +2,18 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { detectionApi } from '../../../services/api';
 import type { DetectionLogEntry } from '../types/detection.types';
 
+export type DateFilterOption = 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'THIS_MONTH' | 'ALL' | 'CUSTOM';
+
 export interface UseDetectionLogsOptions {
   liveLogs?: DetectionLogEntry[];
   initialPageSize?: number;
+  initialDateFilter?: DateFilterOption;
 }
 
 export function useDetectionLogs({
   liveLogs = [],
   initialPageSize = 10,
+  initialDateFilter = 'TODAY',
 }: UseDetectionLogsOptions = {}) {
   const [logs, setLogs] = useState<DetectionLogEntry[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -26,6 +30,11 @@ export function useDetectionLogs({
   const [eventFilter, setEventFilter] = useState<string>('ALL');
   const [vehicleFilter, setVehicleFilter] = useState<string>('ALL');
 
+  // Date Filter: default to TODAY ('Current data')
+  const [dateFilter, setDateFilter] = useState<DateFilterOption>(initialDateFilter);
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+
   // Debounce search input by 300ms
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -34,17 +43,51 @@ export function useDetectionLogs({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Compute date range according to filter
+  const getDateRange = useCallback(() => {
+    const now = new Date();
+    if (dateFilter === 'TODAY') {
+      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { startDate: s.toISOString(), endDate: e.toISOString() };
+    }
+    if (dateFilter === 'YESTERDAY') {
+      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
+      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+      return { startDate: s.toISOString(), endDate: e.toISOString() };
+    }
+    if (dateFilter === 'LAST_7_DAYS') {
+      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
+      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { startDate: s.toISOString(), endDate: e.toISOString() };
+    }
+    if (dateFilter === 'THIS_MONTH') {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      return { startDate: s.toISOString(), endDate: e.toISOString() };
+    }
+    if (dateFilter === 'CUSTOM') {
+      const s = customStartDate ? new Date(customStartDate + 'T00:00:00').toISOString() : undefined;
+      const e = customEndDate ? new Date(customEndDate + 'T23:59:59.999').toISOString() : undefined;
+      return { startDate: s, endDate: e };
+    }
+    return { startDate: undefined, endDate: undefined };
+  }, [dateFilter, customStartDate, customEndDate]);
+
   // Fetch paginated logs from backend
   const fetchLogs = useCallback(
     async (isSilent = false) => {
       if (!isSilent) setLoading(true);
       try {
+        const { startDate, endDate } = getDateRange();
         const res = await detectionApi.getDetectionLogs({
           page: currentPage,
           limit: pageSize,
           search: debouncedSearch.trim() || undefined,
           event: eventFilter !== 'ALL' ? eventFilter : undefined,
           vehicleType: vehicleFilter !== 'ALL' ? vehicleFilter : undefined,
+          startDate,
+          endDate,
         });
 
         if (res.success && res.data) {
@@ -71,7 +114,7 @@ export function useDetectionLogs({
         if (!isSilent) setLoading(false);
       }
     },
-    [currentPage, pageSize, debouncedSearch, eventFilter, vehicleFilter]
+    [currentPage, pageSize, debouncedSearch, eventFilter, vehicleFilter, getDateRange]
   );
 
   // Fetch when page, pageSize, search, or filters change
@@ -89,7 +132,7 @@ export function useDetectionLogs({
 
   // On page 1 with no filters, seamlessly show brand-new live detections
   const displayLogs = useMemo(() => {
-    if (currentPage !== 1 || liveLogs.length === 0 || debouncedSearch || eventFilter !== 'ALL' || vehicleFilter !== 'ALL') {
+    if (currentPage !== 1 || liveLogs.length === 0 || debouncedSearch || eventFilter !== 'ALL' || vehicleFilter !== 'ALL' || (dateFilter !== 'TODAY' && dateFilter !== 'ALL')) {
       return logs;
     }
 
@@ -102,7 +145,7 @@ export function useDetectionLogs({
 
     if (freshLive.length === 0) return logs;
     return [...freshLive, ...logs].slice(0, pageSize);
-  }, [logs, liveLogs, currentPage, pageSize, debouncedSearch, eventFilter, vehicleFilter]);
+  }, [logs, liveLogs, currentPage, pageSize, debouncedSearch, eventFilter, vehicleFilter, dateFilter]);
 
   const clearLogs = useCallback(async () => {
     try {
@@ -132,6 +175,12 @@ export function useDetectionLogs({
     setEventFilter,
     vehicleFilter,
     setVehicleFilter,
+    dateFilter,
+    setDateFilter,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
     refresh: () => fetchLogs(false),
     clearLogs,
   };

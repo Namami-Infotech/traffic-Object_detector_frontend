@@ -11,6 +11,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Search,
+  Calendar,
 } from 'lucide-react';
 import { useDetectionLogs } from '../hooks/useDetectionLogs';
 import type { DetectionLogEntry } from '../types/detection.types';
@@ -40,6 +41,12 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
     setEventFilter,
     vehicleFilter,
     setVehicleFilter,
+    dateFilter,
+    setDateFilter,
+    customStartDate,
+    setCustomStartDate,
+    customEndDate,
+    setCustomEndDate,
     refresh,
     clearLogs,
   } = useDetectionLogs({ liveLogs });
@@ -80,7 +87,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               fontWeight: 600,
             }}
           >
-            {totalCount} Records
+            {totalCount} Records {dateFilter === 'TODAY' ? '(Today)' : dateFilter === 'ALL' ? '(All Time)' : ''}
           </span>
         </div>
 
@@ -146,11 +153,11 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
         }}
       >
         {/* Search Input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '200px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '180px' }}>
           <Search size={15} color="var(--text-muted)" />
           <input
             type="text"
-            placeholder="Search by vehicle, camera or location..."
+            placeholder="Search by vehicle, plate, camera or location..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -166,6 +173,75 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
             }}
           />
         </div>
+
+        {/* Date Filter (Default: Today / Current Data) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Calendar size={14} color="var(--accent-blue)" />
+          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Date:</span>
+          <select
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value as any);
+              setCurrentPage(1);
+            }}
+            style={{
+              padding: '4px 8px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              borderRadius: '6px',
+              border: dateFilter === 'TODAY' ? '1px solid #93c5fd' : '1px solid var(--border-color)',
+              background: dateFilter === 'TODAY' ? '#eff6ff' : '#ffffff',
+              color: dateFilter === 'TODAY' ? '#1d4ed8' : 'var(--text-primary)',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="TODAY">Today (Current)</option>
+            <option value="YESTERDAY">Yesterday</option>
+            <option value="LAST_7_DAYS">Last 7 Days</option>
+            <option value="THIS_MONTH">This Month</option>
+            <option value="ALL">All Time</option>
+            <option value="CUSTOM">Custom Range...</option>
+          </select>
+        </div>
+
+        {/* Custom Date Pickers when CUSTOM is selected */}
+        {dateFilter === 'CUSTOM' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <input
+              type="date"
+              value={customStartDate}
+              onChange={(e) => {
+                setCustomStartDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '3px 6px',
+                fontSize: '0.78rem',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                background: '#ffffff',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>to</span>
+            <input
+              type="date"
+              value={customEndDate}
+              onChange={(e) => {
+                setCustomEndDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '3px 6px',
+                fontSize: '0.78rem',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                background: '#ffffff',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </div>
+        )}
 
         {/* Event Filter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
