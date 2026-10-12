@@ -3,9 +3,7 @@ import type { DetectionLogInput } from '../../../services/api';
 
 export const detectionService = {
   logEvent(data: DetectionLogInput) {
-    return detectionApi.createLog(data).catch((err) => {
-      console.warn('Failed to save detection log to DB:', err.message);
-    });
+    return detectionApi.createLog(data);
   },
 
   clearAllLogs() {
