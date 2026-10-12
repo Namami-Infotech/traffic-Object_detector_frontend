@@ -512,7 +512,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                     <td style={{ padding: '8px 8px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#059669' }}>
                         <ShieldCheck size={13} />
-                        {Math.round((log.confidence || 0.9) * 100)}%
+                        {Math.round(((log.plateConfidence !== null && log.plateConfidence !== undefined) ? log.plateConfidence : (log.confidence || 0.9)) * 100)}%
                       </span>
                     </td>
                   </tr>

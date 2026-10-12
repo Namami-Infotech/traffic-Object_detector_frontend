@@ -188,8 +188,9 @@ export function useDetectionTracker({
             if (trackedObj && trackedObj.bbox) {
               const plateRoiCanvas = plateRecognitionService.cropPlateRegion(activeSource, trackedObj.bbox);
               if (plateRoiCanvas) {
-                plateRecognitionService.recognizePlate(plateRoiCanvas).then((plateRes) => {
-                  const hasPlate = plateRes && plateRes.plateNumber;
+                plateRecognitionService.recognizePlate(plateRoiCanvas, true).then((plateRes) => {
+                  const hasPlate = Boolean(plateRes && plateRes.plateNumber && plateRes.isValid);
+                  const genuineConf = hasPlate && plateRes.confidence ? plateRes.confidence : ((evt as any).score || 0.95);
                   detectionService.logEvent({
                     cameraId: cameraId || 'default-webcam',
                     vehicleType: (evt.label || 'car').toUpperCase(),
@@ -197,7 +198,7 @@ export function useDetectionTracker({
                     event: 'IN',
                     plateNumber: (hasPlate && (plateRes.formattedPlate || plateRes.plateNumber)) ? (plateRes.formattedPlate || plateRes.plateNumber)! : undefined,
                     plateConfidence: hasPlate ? plateRes.confidence : undefined,
-                    confidence: (evt as any).score || 0.95,
+                    confidence: genuineConf,
                     count: 1,
                     inCount: currentIn,
                     outCount: outCountRef.current,
@@ -252,8 +253,9 @@ export function useDetectionTracker({
             if (trackedObj && trackedObj.bbox) {
               const plateRoiCanvas = plateRecognitionService.cropPlateRegion(activeSource, trackedObj.bbox);
               if (plateRoiCanvas) {
-                plateRecognitionService.recognizePlate(plateRoiCanvas).then((plateRes) => {
-                  const hasPlate = plateRes && plateRes.plateNumber;
+                plateRecognitionService.recognizePlate(plateRoiCanvas, true).then((plateRes) => {
+                  const hasPlate = Boolean(plateRes && plateRes.plateNumber && plateRes.isValid);
+                  const genuineConf = hasPlate && plateRes.confidence ? plateRes.confidence : ((evt as any).score || 0.95);
                   detectionService.logEvent({
                     cameraId: cameraId || 'default-webcam',
                     vehicleType: (evt.label || 'car').toUpperCase(),
@@ -261,7 +263,7 @@ export function useDetectionTracker({
                     event: 'OUT',
                     plateNumber: (hasPlate && (plateRes.formattedPlate || plateRes.plateNumber)) ? (plateRes.formattedPlate || plateRes.plateNumber)! : undefined,
                     plateConfidence: hasPlate ? plateRes.confidence : undefined,
-                    confidence: (evt as any).score || 0.95,
+                    confidence: genuineConf,
                     count: 1,
                     inCount: inCountRef.current,
                     outCount: currentOut,

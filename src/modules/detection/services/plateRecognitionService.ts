@@ -329,10 +329,20 @@ class PlateRecognitionService {
       if (isAlreadyCropped) {
         const contrastCanvas = this.preprocessCanvas(baseCanvas);
         candidates.push({ canvas: contrastCanvas, psm: '6', name: 'Direct-0deg' });
-        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -8), psm: '6', name: 'Direct-Minus8' });
-        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 8), psm: '6', name: 'Direct-Plus8' });
-        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -14), psm: '6', name: 'Direct-Minus14' });
-        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 14), psm: '6', name: 'Direct-Plus14' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -10), psm: '6', name: 'Direct-Minus10' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 10), psm: '6', name: 'Direct-Plus10' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -20), psm: '6', name: 'Direct-Minus20' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 20), psm: '6', name: 'Direct-Plus20' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -35), psm: '6', name: 'Direct-Minus35' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 35), psm: '6', name: 'Direct-Plus35' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -60), psm: '6', name: 'Direct-Minus60' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 60), psm: '6', name: 'Direct-Plus60' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -90), psm: '6', name: 'Direct-Minus90' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 90), psm: '6', name: 'Direct-Plus90' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -135), psm: '6', name: 'Direct-Minus135' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 135), psm: '6', name: 'Direct-Plus135' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, -170), psm: '6', name: 'Direct-Minus170' });
+        candidates.push({ canvas: this.rotateCanvas(contrastCanvas, 170), psm: '6', name: 'Direct-Plus170' });
       } else {
         // 1. Check for Yellow Commercial Plate (Trucks, Commercial Buses, Taxis)
         const yellowBox = this.detectYellowPlateRegion(baseCanvas);
@@ -340,8 +350,10 @@ class PlateRecognitionService {
           const yellowCrop = this.cropPixelRegion(baseCanvas, yellowBox.x, yellowBox.y, yellowBox.w, yellowBox.h);
           const processedYellow = this.preprocessCanvas(yellowCrop);
           candidates.push({ canvas: processedYellow, psm: '6', name: 'YellowPlate-0deg' });
-          candidates.push({ canvas: this.rotateCanvas(processedYellow, -8), psm: '6', name: 'YellowPlate-Minus8' });
-          candidates.push({ canvas: this.rotateCanvas(processedYellow, 8), psm: '6', name: 'YellowPlate-Plus8' });
+          candidates.push({ canvas: this.rotateCanvas(processedYellow, -12), psm: '6', name: 'YellowPlate-Minus12' });
+          candidates.push({ canvas: this.rotateCanvas(processedYellow, 12), psm: '6', name: 'YellowPlate-Plus12' });
+          candidates.push({ canvas: this.rotateCanvas(processedYellow, -25), psm: '6', name: 'YellowPlate-Minus25' });
+          candidates.push({ canvas: this.rotateCanvas(processedYellow, 25), psm: '6', name: 'YellowPlate-Plus25' });
         }
 
         // 2. Use AI Object Detection to isolate the vehicle
