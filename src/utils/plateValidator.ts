@@ -1,33 +1,8 @@
 /**
  * Indian Vehicle Number Plate Validator & Sanitizer (Frontend)
- * Removes unwanted stickers, dealership names, 'IND' tags, and extracts valid plate numbers.
+ * Extracts and strictly validates standard Indian registration plates.
+ * Never returns corrupt or invalid text as a clean plate.
  */
-
-const UNWANTED_WORDS = [
-  'IND',
-  'INDIA',
-  'POLICE',
-  'GOVT',
-  'GOVERNMENT',
-  'ARMY',
-  'DEFENCE',
-  'DOCTOR',
-  'PRESS',
-  'VIP',
-  'ADMIN',
-  'MARUTI',
-  'SUZUKI',
-  'HONDA',
-  'HYUNDAI',
-  'TATA',
-  'TOYOTA',
-  'MAHINDRA',
-  'BAJAJ',
-  'HERO',
-  'YAMAHA',
-  'MOTORS',
-  'AUTO',
-];
 
 export const INDIAN_STATE_CODES = new Set([
   'AN', 'AP', 'AR', 'AS', 'BR', 'CG', 'CH', 'DD', 'DL', 'DN',
@@ -38,95 +13,171 @@ export const INDIAN_STATE_CODES = new Set([
 
 export interface PlateValidationResult {
   isValid: boolean;
-  cleanPlate: string; // e.g. "UP14ET1234"
-  formattedPlate: string; // e.g. "UP 14 ET 1234"
+  cleanPlate: string; // e.g. "DL03CDE0953" or "DL11CG2337"
+  formattedPlate: string; // e.g. "DL 03 CDE 0953" or "DL 11 CG 2337"
   stateCode?: string;
   confidenceAdjustment: number;
 }
 
 export function sanitizeAndValidatePlate(rawText: string): PlateValidationResult {
+  const invalidResult: PlateValidationResult = {
+    isValid: false,
+    cleanPlate: '',
+    formattedPlate: '',
+    confidenceAdjustment: 0,
+  };
+
   if (!rawText || typeof rawText !== 'string') {
-    return { isValid: false, cleanPlate: '', formattedPlate: '', confidenceAdjustment: 0 };
+    return invalidResult;
   }
 
-  let text = rawText.toUpperCase();
+  // 1. Tokenize OCR text by whitespace and symbols
+  const cleanStr = rawText.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ');
+  const tokens = cleanStr.split(/\s+/).filter(Boolean);
 
-  // 1. Remove unwanted known stickers / dealer names / IND tags
-  for (const word of UNWANTED_WORDS) {
-    const wordRegex = new RegExp(`\\b${word}\\b`, 'gi');
-    text = text.replace(wordRegex, '');
+  if (tokens.length === 0) {
+    return invalidResult;
   }
 
-  // 2. Strip non-alphanumeric characters
-  const alphanumeric = text.replace(/[^A-Z0-9]/g, '');
+  // 2. Sliding window over 1 to 6 tokens to isolate candidate plate token sequence
+  for (let len = 1; len <= Math.min(6, tokens.length); len++) {
+    for (let i = 0; i <= tokens.length - len; i++) {
+      let combined = tokens.slice(i, i + len).join('');
 
-  // 3. Search for Standard Indian Plate Pattern: 2 Letters + 1-2 Digits + 1-3 Letters + 4 Digits
-  // Examples: DL01AB1234, UP14ET9999, MH12CD5678, HR26DQ5555
-  const standardPattern = /([A-Z]{2})([0-9]{1,2})([A-Z]{1,3})([0-9]{4})/g;
-  const standardMatch = standardPattern.exec(alphanumeric);
+      // Remove IND prefix if attached (e.g. INDDL03CDE0953 -> DL03CDE0953)
+      if (combined.startsWith('IND') && combined.length >= 8) {
+        combined = combined.slice(3);
+      } else {
+        combined = combined.replace(/IND(?=[A-Z]{2}[0-9])/, '');
+      }
 
-  if (standardMatch) {
-    const stateCode = standardMatch[1];
-    const rtoCode = standardMatch[2].padStart(2, '0');
-    const series = standardMatch[3];
-    const digits = standardMatch[4];
-
-    const cleanPlate = `${stateCode}${rtoCode}${series}${digits}`;
-    const formattedPlate = `${stateCode} ${rtoCode} ${series} ${digits}`;
-    const isStateValid = INDIAN_STATE_CODES.has(stateCode);
-
-    return {
-      isValid: true,
-      cleanPlate,
-      formattedPlate,
-      stateCode,
-      confidenceAdjustment: isStateValid ? 1.0 : 0.85,
-    };
-  }
-
-  // 4. Check for Bharat Series (BH) Pattern: 2 Digits + BH + 4 Digits + 1-2 Letters
-  // Example: 22BH1234AA
-  const bhPattern = /([0-9]{2})BH([0-9]{4})([A-Z]{1,2})/g;
-  const bhMatch = bhPattern.exec(alphanumeric);
-
-  if (bhMatch) {
-    const year = bhMatch[1];
-    const digits = bhMatch[2];
-    const series = bhMatch[3];
-
-    const cleanPlate = `${year}BH${digits}${series}`;
-    const formattedPlate = `${year} BH ${digits} ${series}`;
-
-    return {
-      isValid: true,
-      cleanPlate,
-      formattedPlate,
-      stateCode: 'BH',
-      confidenceAdjustment: 0.95,
-    };
-  }
-
-  // 5. Fallback heuristic: If string length is between 8 and 11 and starts with 2 letters and ends with 4 digits
-  if (alphanumeric.length >= 8 && alphanumeric.length <= 11) {
-    const looseMatch = /^([A-Z]{2})([0-9A-Z]+)([0-9]{4})$/.exec(alphanumeric);
-    if (looseMatch) {
-      const stateCode = looseMatch[1];
-      if (INDIAN_STATE_CODES.has(stateCode)) {
+      // 1. Check Delhi Commercial plate:
+      // DL + 1 to 14 + Category letter (M, L, C, T, A, B, P, S, Y, Z) + optional series (1 letter) + 4 digits
+      // Examples: DL1MB1331 -> "DL 1M B 1331", DL1M1331 -> "DL 1M 1331"
+      const dlCommMatch = /^DL([1-9]|0[1-9]|1[0-4])([MLCTABPSYZ])([A-Z]?)([0-9]{4})$/.exec(combined);
+      if (dlCommMatch) {
+        const rtoNum = parseInt(dlCommMatch[1], 10).toString();
+        const cat = dlCommMatch[2];
+        const series = dlCommMatch[3];
+        const num = dlCommMatch[4];
         return {
           isValid: true,
-          cleanPlate: alphanumeric,
-          formattedPlate: `${stateCode} ${looseMatch[2]} ${looseMatch[3]}`,
-          stateCode,
-          confidenceAdjustment: 0.75,
+          cleanPlate: `DL${rtoNum}${cat}${series}${num}`,
+          formattedPlate: `DL ${rtoNum}${cat} ${series ? series + ' ' : ''}${num}`.trim(),
+          stateCode: 'DL',
+          confidenceAdjustment: 1.0,
         };
+      }
+
+      // 2. Check standard Indian plate:
+      // State (2 letters) + RTO/District (1-2 digits) + Series (1-3 letters) + Number (4 digits)
+      // Examples: DL03CDE0953, DL11CG2337, UP14ET9999, MH12CD5678, HR26DQ5555
+      const standardMatch = /^([A-Z]{2})([0-9]{1,2})([A-Z]{1,3})([0-9]{4})$/.exec(combined);
+      if (standardMatch) {
+        const state = standardMatch[1];
+        if (INDIAN_STATE_CODES.has(state)) {
+          const rto = standardMatch[2].padStart(2, '0');
+          const series = standardMatch[3];
+          const num = standardMatch[4];
+          return {
+            isValid: true,
+            cleanPlate: `${state}${rto}${series}${num}`,
+            formattedPlate: `${state} ${rto} ${series} ${num}`,
+            stateCode: state,
+            confidenceAdjustment: 1.0,
+          };
+        }
+      }
+
+      // 3. Check Old / Gov standard plate without series letters (e.g. DL 01 1234)
+      const govMatch = /^([A-Z]{2})([0-9]{1,2})([0-9]{4})$/.exec(combined);
+      if (govMatch) {
+        const state = govMatch[1];
+        if (INDIAN_STATE_CODES.has(state)) {
+          const rto = govMatch[2].padStart(2, '0');
+          const num = govMatch[3];
+          return {
+            isValid: true,
+            cleanPlate: `${state}${rto}${num}`,
+            formattedPlate: `${state} ${rto} ${num}`,
+            stateCode: state,
+            confidenceAdjustment: 1.0,
+          };
+        }
+      }
+
+      // 4. Check Bharat (BH) series: 2 digits + BH + 4 digits + 1-2 letters (e.g. 22BH1234AA)
+      const bhMatch = /^([0-9]{2})BH([0-9]{4})([A-Z]{1,2})$/.exec(combined);
+      if (bhMatch) {
+        return {
+          isValid: true,
+          cleanPlate: `${bhMatch[1]}BH${bhMatch[2]}${bhMatch[3]}`,
+          formattedPlate: `${bhMatch[1]} BH ${bhMatch[2]} ${bhMatch[3]}`,
+          stateCode: 'BH',
+          confidenceAdjustment: 0.95,
+        };
+      }
+
+      // 5. Slot-based OCR healer for standard Indian plate (8 to 11 characters)
+      // Heals character misrecognitions like O<->0, I<->1, G<->6, B<->8, S<->5, Z<->2, A<->4
+      if (combined.length >= 8 && combined.length <= 11) {
+        let stateCandidate = combined.slice(0, 2).replace(/0/g, 'O').replace(/1/g, 'I');
+        if (INDIAN_STATE_CODES.has(stateCandidate)) {
+          const rest = combined.slice(2);
+          const numDigits = rest
+            .slice(-4)
+            .replace(/[ODQ]/g, '0')
+            .replace(/[IL]/g, '1')
+            .replace(/Z/g, '2')
+            .replace(/S/g, '5')
+            .replace(/B/g, '8')
+            .replace(/G/g, '6')
+            .replace(/A/g, '4');
+
+          // Delhi Commercial Healer: DL + (1-14) + (M/L/C/T/A/B/P/S/Y/Z) + (A-Z)? + 4 digits
+          if (stateCandidate === 'DL') {
+            const dlMatch = rest.match(/^([0-9IOS]{1,2})([MLCTABPSYZ])([A-Z]?)([0-9ODQILZSBGA]{4})$/);
+            if (dlMatch) {
+              const rtoVal = dlMatch[1].replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5');
+              const cat = dlMatch[2];
+              const series = dlMatch[3];
+              const cleanRto = parseInt(rtoVal, 10).toString();
+              return {
+                isValid: true,
+                cleanPlate: `DL${cleanRto}${cat}${series}${numDigits}`,
+                formattedPlate: `DL ${cleanRto}${cat} ${series ? series + ' ' : ''}${numDigits}`.trim(),
+                stateCode: 'DL',
+                confidenceAdjustment: 0.9,
+              };
+            }
+          }
+
+          const mid = rest.slice(0, -4);
+          const midMatch = mid.match(/^([0-9IOS]{1,2})(.*)$/);
+          if (midMatch) {
+            const rto = midMatch[1].replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').padStart(2, '0');
+            const series = midMatch[2]
+              .replace(/0/g, 'O')
+              .replace(/1/g, 'I')
+              .replace(/6/g, 'G')
+              .replace(/8/g, 'B')
+              .replace(/5/g, 'S');
+
+            if (/^[0-9]{2}$/.test(rto) && /^[A-Z]{1,3}$/.test(series) && /^[0-9]{4}$/.test(numDigits)) {
+              return {
+                isValid: true,
+                cleanPlate: `${stateCandidate}${rto}${series}${numDigits}`,
+                formattedPlate: `${stateCandidate} ${rto} ${series} ${numDigits}`,
+                stateCode: stateCandidate,
+                confidenceAdjustment: 0.9,
+              };
+            }
+          }
+        }
       }
     }
   }
 
-  return {
-    isValid: false,
-    cleanPlate: alphanumeric,
-    formattedPlate: alphanumeric,
-    confidenceAdjustment: 0.4,
-  };
+  // Strictly return empty plate if no valid Indian format was matched
+  return invalidResult;
 }

@@ -20,6 +20,7 @@ export interface TrafficAnalyticsProps {
     vehicleInOut?: Record<string, { in: number; out: number }>;
   }>;
   cameraLiveVehicleInOut?: Record<string, Record<string, { in: number; out: number }>>;
+  totalParkingSlots?: number;
 }
 
 export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
@@ -31,6 +32,7 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
   cameras: _cameras = [],
   cameraStats: _cameraStats = {},
   cameraLiveVehicleInOut: _cameraLiveVehicleInOut = {},
+  totalParkingSlots,
 }) => {
   const density = calculateTrafficDensity(activeCount);
 
@@ -298,8 +300,8 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
         </div>
       </div>
 
-      {/* 2. Smart Parking Availability Card (100 Slots) */}
-      <ParkingAvailabilityCard totalSlots={100} vehicleInOut={vehicleInOut} />
+      {/* 2. Smart Parking Availability Card (Dynamic total slots) */}
+      <ParkingAvailabilityCard totalSlots={totalParkingSlots} vehicleInOut={vehicleInOut} />
 
       {/* 3. Individual Vehicle Stats Grid */}
       <div

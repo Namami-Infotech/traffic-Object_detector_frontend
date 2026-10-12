@@ -1,14 +1,21 @@
 import React from 'react';
-import { Camera, Scan } from 'lucide-react';
+import { Camera, LogIn } from 'lucide-react';
+import { useAuth } from '../../modules/auth/context/AuthContext';
 
 export interface NavbarProps {
-  onOpenAddCamera: () => void;
+  onOpenAddCamera?: () => void;
   onOpenPlateScanner?: () => void;
+  onOpenLogin?: () => void;
+  onOpenRoleAccess?: () => void;
   activeCameraName?: string;
   isAiLoading?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenAddCamera, onOpenPlateScanner }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  onOpenLogin,
+}) => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <header className="glass-panel navbar-header">
       <div className="navbar-brand">
@@ -36,15 +43,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAddCamera, onOpenPlateScan
       </div>
 
       <div className="navbar-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {onOpenPlateScanner && (
+        {!isAuthenticated && (
           <button
             type="button"
-            onClick={onOpenPlateScanner}
+            onClick={onOpenLogin}
             style={{
-              background: '#0284c7',
-              color: '#ffffff',
-              border: 'none',
-              padding: '9px 16px',
+              background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+              color: '#38bdf8',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              padding: '8px 16px',
               borderRadius: '8px',
               fontWeight: 600,
               cursor: 'pointer',
@@ -53,38 +60,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenAddCamera, onOpenPlateScan
               gap: '8px',
               fontSize: '0.88rem',
               transition: 'all 0.2s ease',
-              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',
             }}
           >
-            <Scan size={16} />
-            ANPR Plate Scanner
+            <LogIn size={16} color="#38bdf8" />
+            Login (Admin)
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={onOpenAddCamera}
-          style={{
-            background: '#0f172a',
-            color: '#ffffff',
-            border: 'none',
-            padding: '9px 18px',
-            borderRadius: '8px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            fontSize: '0.88rem',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
-          }}
-        >
-          <Camera size={16} />
-          + Connect CCTV
-        </button>
       </div>
     </header>
   );
 };
-

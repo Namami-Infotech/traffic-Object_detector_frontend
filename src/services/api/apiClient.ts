@@ -1,3 +1,5 @@
+import axios from 'axios';
+import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../../app/config/env.config';
 
 export interface ApiResponse<T = any> {
@@ -9,65 +11,52 @@ export interface ApiResponse<T = any> {
   [key: string]: any;
 }
 
-export interface RequestOptions extends Omit<RequestInit, 'body'> {
+export interface RequestOptions extends AxiosRequestConfig {
   body?: any;
   params?: Record<string, string | number | boolean | undefined>;
 }
 
 class ApiClient {
-  private baseUrl: string;
+  public instance: AxiosInstance;
 
   constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
-  }
-
-  private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
-    const cleanPath = path.startsWith('/') ? path : `/${path}`;
-    const fullUrl = `${this.baseUrl}${cleanPath}`;
-
-    if (!params) return fullUrl;
-
-    const query = new URLSearchParams();
-    Object.entries(params).forEach(([key, val]) => {
-      if (val !== undefined && val !== null) {
-        query.append(key, String(val));
-      }
+    this.instance = axios.create({
+      baseURL: baseUrl,
     });
 
-    const queryString = query.toString();
-    return queryString ? `${fullUrl}?${queryString}` : fullUrl;
+    // Request interceptor to automatically attach authorization token
+    this.instance.interceptors.request.use((config) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('traffic_auth_token') : null;
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    });
   }
 
   async request<T = any>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
-    const { body, params, headers, ...customConfig } = options;
-    const url = this.buildUrl(path, params);
-
-    const isJsonBody = body && typeof body === 'object' && !(body instanceof FormData);
-
-    const config: RequestInit = {
-      ...customConfig,
-      headers: {
-        ...(isJsonBody ? { 'Content-Type': 'application/json' } : {}),
-        ...headers,
-      },
-      ...(body ? { body: isJsonBody ? JSON.stringify(body) : body } : {}),
-    };
+    const { body, data, method = 'GET', ...customConfig } = options;
+    const requestData = body !== undefined ? body : data;
 
     try {
-      const response = await fetch(url, config);
-      const data = await response.json().catch(() => ({}));
+      const response = await this.instance.request<any>({
+        url: path,
+        method,
+        data: requestData,
+        ...customConfig,
+      });
 
-      if (!response.ok) {
+      return response.data;
+    } catch (error: any) {
+      if (error.response) {
+        const responseData = error.response.data || {};
         return {
           success: false,
-          message: data?.message || `HTTP ${response.status}: Request failed`,
-          ...data,
+          message: responseData?.message || `HTTP ${error.response.status}: Request failed`,
+          ...responseData,
         };
       }
-
-      return data;
-    } catch (error: any) {
-      console.warn(`[ApiClient] Request to ${url} failed:`, error.message);
+      console.warn(`[ApiClient] Request to ${path} failed:`, error.message);
       return {
         success: false,
         message: error.message || 'Network error occurred',
@@ -83,6 +72,10 @@ class ApiClient {
     return this.request<T>(path, { ...options, method: 'POST', body });
   }
 
+  put<T = any>(path: string, body?: any, options?: RequestOptions) {
+    return this.request<T>(path, { ...options, method: 'PUT', body });
+  }
+
   patch<T = any>(path: string, body?: any, options?: RequestOptions) {
     return this.request<T>(path, { ...options, method: 'PATCH', body });
   }
@@ -93,3 +86,5 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+export default apiClient;
+

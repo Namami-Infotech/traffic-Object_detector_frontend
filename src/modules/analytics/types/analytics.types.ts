@@ -11,5 +11,6 @@ export interface MergedVehicleInOut {
 export interface AnalyticsSummaryState {
   totalIn: number;
   totalOut: number;
+  totalDetections?: number;
   summary: Record<string, number>;
 }

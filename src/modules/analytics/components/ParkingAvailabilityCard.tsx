@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   CircleParking,
   Car,
@@ -11,10 +11,11 @@ import {
   Ban,
   BellRing,
 } from 'lucide-react';
+import { parkingApi } from '../../../services/api';
 
 export interface ParkingAvailabilityCardProps {
   /**
-   * Total parking slot capacity (default: 100 slots)
+   * Total parking slot capacity (optional - auto-loaded from API if omitted)
    */
   totalSlots?: number;
   /**
@@ -34,15 +35,51 @@ export interface ToastMessage {
  * Smart Parking Availability Card
  *
  * Rules:
- * - Total Capacity = 100 slots (configurable)
+ * - Total Capacity = Total slots counted across all parking areas from Backend API
  * - Car / Bus / Person passes IN  => -1 from Free Slots (+1 Occupied)
  * - Car / Bus / Person passes OUT => +1 to Free Slots (-1 Occupied)
  * - If parking is FULL (0 Free Slots) and an IN event occurs => Pops up alert Toast "Parking Not Available!"
  */
 export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = ({
-  totalSlots = 100,
+  totalSlots: propTotalSlots,
   vehicleInOut,
 }) => {
+  const [dbTotalSlots, setDbTotalSlots] = useState<number | null>(null);
+  const [totalLotsCount, setTotalLotsCount] = useState<number>(0);
+
+  // Auto-fetch total slots count across all registered parking lots
+  const loadParkingStats = useCallback(async () => {
+    try {
+      const res = await parkingApi.getStats();
+      if (res.success && res.data) {
+        if (typeof res.data.totalSlots === 'number') {
+          setDbTotalSlots(res.data.totalSlots);
+        }
+        if (typeof res.data.totalLots === 'number') {
+          setTotalLotsCount(res.data.totalLots);
+        }
+      }
+    } catch {
+      // fallback to props or default
+    }
+  }, []);
+
+  useEffect(() => {
+    loadParkingStats();
+    const interval = setInterval(loadParkingStats, 10000);
+    const handleUpdate = () => {
+      loadParkingStats();
+    };
+    window.addEventListener('parking-updated', handleUpdate);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('parking-updated', handleUpdate);
+    };
+  }, [loadParkingStats]);
+
+  // Priority: API-loaded total slots > propTotalSlots > default 100
+  const totalSlots = dbTotalSlots !== null ? dbTotalSlots : (propTotalSlots || 100);
+
   // Counts for Cars, Buses, and Persons
   const carIn = vehicleInOut?.CAR?.in || 0;
   const carOut = vehicleInOut?.CAR?.out || 0;
@@ -60,11 +97,11 @@ export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = (
   // Net occupied slots (bounded between 0 and totalSlots)
   const occupiedSlots = Math.max(0, Math.min(totalSlots, totalEntered - totalExited));
 
-  // Available free slots (100 - occupiedSlots)
+  // Available free slots (totalSlots - occupiedSlots)
   const freeSlots = Math.max(0, totalSlots - occupiedSlots);
 
   // Occupancy percentage
-  const occupancyPercentage = Math.min(100, Math.round((occupiedSlots / totalSlots) * 100));
+  const occupancyPercentage = totalSlots > 0 ? Math.min(100, Math.round((occupiedSlots / totalSlots) * 100)) : 0;
 
   // Active Toast notifications state
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -99,7 +136,7 @@ export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = (
     const newToast: ToastMessage = {
       id: Date.now(),
       title: '🚫 Parking Not Available!',
-      message: customNote || 'Parking is 100% full (100/100 slots occupied). No free space left!',
+      message: customNote || `Parking is 100% full (${totalSlots}/${totalSlots} slots occupied). No free space left!`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     };
 
@@ -300,6 +337,11 @@ export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = (
               </h3>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
                 Auto-tracked via Car, Bus & Person IN / OUT Detection
+                {totalLotsCount > 0 && (
+                  <span style={{ marginLeft: '6px', opacity: 0.85, fontWeight: 500 }}>
+                    • {totalLotsCount} {totalLotsCount === 1 ? 'Area' : 'Areas'} ({totalSlots} Total Slots)
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -464,7 +506,7 @@ export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = (
                   fontWeight: 800,
                   lineHeight: 1,
                   fontVariantNumeric: 'tabular-nums',
-                  color: occupiedSlots >= totalSlots ? '#f87171' : occupiedSlots > 80 ? '#fbbf24' : '#ffffff',
+                  color: occupiedSlots >= totalSlots ? '#f87171' : occupancyPercentage > 80 ? '#fbbf24' : '#ffffff',
                 }}
               >
                 {occupiedSlots}
@@ -509,7 +551,7 @@ export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = (
             <div
               style={{
                 width: `${occupancyPercentage}%`,
-                backgroundColor: occupiedSlots >= totalSlots ? '#ef4444' : occupiedSlots > 75 ? '#f59e0b' : '#10b981',
+                backgroundColor: occupiedSlots >= totalSlots ? '#ef4444' : occupancyPercentage > 75 ? '#f59e0b' : '#10b981',
                 transition: 'width 0.3s ease, background-color 0.3s ease',
               }}
             />

@@ -10,9 +10,11 @@ export interface VehicleInOutMetrics {
 export interface AnalyticsData {
   totalIn: number;
   totalOut: number;
+  totalDetections?: number;
   summary: Record<string, number>;
   vehicleInOut?: Record<string, VehicleInOutMetrics>;
   recentLogs?: any[];
+  totalParkingSlots?: number;
   [key: string]: any;
 }
 

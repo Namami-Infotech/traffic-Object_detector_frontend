@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect } from 'react';
-import * as cocoSsd from '@tensorflow-models/coco-ssd';
 import { Radio, MapPin, Navigation, ArrowDownUp, ChevronDown, X } from 'lucide-react';
 import { useFullscreen } from '../hooks/useFullscreen';
 import { useCameraStream } from '../hooks/useCameraStream';
@@ -50,7 +49,7 @@ export const CameraCard: React.FC<CameraCardProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const [model, setModel] = useState<cocoSsd.ObjectDetection | null>(null);
+  const [model, setModel] = useState<any>(null);
   const [lineOrientation, setLineOrientation] = useState<LineOrientation>('VERTICAL');
   const [linePositionPercent, setLinePositionPercent] = useState<number>(50);
   const [showTrajectories] = useState<boolean>(true);

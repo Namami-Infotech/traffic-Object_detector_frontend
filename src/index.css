@@ -148,7 +148,7 @@ body {
 .app-container {
   max-width: 100%;
   margin: 0;
-  padding: 0 1rem 1.5rem 1rem;
+  padding: 0 0.5rem 1rem 0.5rem;
   width: 100%;
 }
 
@@ -162,13 +162,16 @@ body {
 
 /* Navbar Responsive Container */
 .navbar-header {
-  margin: 1rem;
-  padding: 1rem 1.5rem;
+  margin: 0.5rem;
+  padding: 0.75rem 1rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
 .navbar-brand {
@@ -284,4 +287,14 @@ body {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+/* Global Table No-Wrap & Smooth Horizontal Scroll */
+table {
+  white-space: nowrap !important;
+}
+
+table th,
+table td {
+  white-space: nowrap !important;
 }

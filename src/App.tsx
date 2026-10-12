@@ -1,21 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Radio } from 'lucide-react';
 import { Navbar } from './components/layout/Navbar';
-import { MultiCameraGrid } from './modules/camera/components/MultiCameraGrid';
-import { CameraCard } from './modules/camera/components/CameraCard';
+import { Sidebar } from './components/layout/Sidebar';
 import { CameraFormModal } from './modules/camera/components/CameraFormModal';
 import { useCameraList } from './modules/camera/hooks/useCameraList';
-import { TrafficAnalytics } from './modules/analytics/components/TrafficAnalytics';
 import { useTrafficAnalytics } from './modules/analytics/hooks/useTrafficAnalytics';
-import { DetectionHistoryTable } from './modules/detection/components/DetectionHistoryTable';
 import { PlateScannerModal } from './modules/detection/components/PlateScannerModal';
 import type { DetectionUpdateData, DetectionLogEntry } from './modules/detection/types/detection.types';
+import { LoginModal, LoginPage, RoleAccessModal, useAuth } from './modules/auth';
+import { ModuleViews } from './modules/views/ModuleViews';
 import { socketClient } from './services/socket/socketClient';
 
 export function App() {
+  const { isAuthenticated, moduleAccess } = useAuth();
+  const [activeModule, setActiveModule] = useState<string>('cctv');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [viewMode] = useState<'GRID' | 'SINGLE'>('GRID');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [isPlateModalOpen, setIsPlateModalOpen] = useState<boolean>(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [isAiLoading, setIsAiLoading] = useState<boolean>(true);
 
   // Modular Camera List Hook
@@ -38,16 +41,29 @@ export function App() {
   });
   const [liveLogs, setLiveLogs] = useState<DetectionLogEntry[]>([]);
 
-  // Initialize unified Socket.IO connection
+  // Initialize unified Socket.IO connection only when authenticated
   useEffect(() => {
-    socketClient.connect();
-  }, []);
+    if (isAuthenticated) {
+      socketClient.connect();
+    }
+  }, [isAuthenticated]);
+
+  // Synchronize active module with user's available permissions
+  useEffect(() => {
+    if (moduleAccess && moduleAccess.length > 0) {
+      const hasCurrent = moduleAccess.some((m) => m.moduleId === activeModule);
+      if (!hasCurrent) {
+        setActiveModule(moduleAccess[0].moduleId);
+      }
+    }
+  }, [moduleAccess, activeModule]);
 
   // Modular Traffic Analytics Hook (combines MySQL DB counts + live session metrics)
   const {
     displayInCount,
     displayOutCount,
     displayActiveCount,
+    displayTotalDetections,
     displayLiveCounts,
     mergedVehicleInOut,
     dbCameraStats,
@@ -205,70 +221,66 @@ export function App() {
     [cameras, refetchDbAnalytics]
   );
 
+  // 1. LOGIN PAGE OPENS FIRST BEFORE ENTERING APPLICATION
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
+
+  // 2. AUTHENTICATED DASHBOARD WITH ROLE-TAILORED SIDEBAR
   return (
-    <div style={{ minHeight: '100vh', paddingBottom: '2rem' }}>
-      {/* Header Navigation */}
-      <Navbar
-        onOpenAddCamera={() => setIsModalOpen(true)}
-        onOpenPlateScanner={() => setIsPlateModalOpen(true)}
-        activeCameraName={activeCamera.cameraName}
-        isAiLoading={isAiLoading}
+    <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', background: 'var(--bg-body)' }}>
+      {/* RBAC Sidebar showing only allowed modules */}
+      <Sidebar
+        activeModule={activeModule}
+        onSelectModule={setActiveModule}
+        onOpenRoleModal={() => setIsRoleModalOpen(true)}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
       />
 
-      <main className="app-container">
-        {/* Multi-Camera Header */}
-        {viewMode === 'GRID' && cameras.some((c) => c.enabled !== false) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-            <Radio color="#059669" size={20} />
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-              Multi-Camera AI Pipeline ({cameras.filter((c) => c.enabled !== false).length} Active Feeds)
-            </h2>
-          </div>
-        )}
-
-        {/* Main Grid: Left CCTV Feed(s) | Right Traffic Analytics */}
-        <div className="app-main-grid">
-          {/* Left Column: Live CCTV Stream */}
-          <div>
-            {viewMode === 'GRID' ? (
-              <MultiCameraGrid
-                cameras={cameras}
-                onDetectionUpdate={handleDetectionUpdate}
-                onModelLoaded={(loaded) => setIsAiLoading(!loaded)}
-              />
-            ) : (
-              <CameraCard
-                selectedCameraUrl={activeCamera.rtspUrl}
-                cameraType={activeCamera.cameraType || 'WEBCAM'}
-                cameraId={activeCamera.id}
-                cameraName={activeCamera.cameraName}
-                location={activeCamera.location}
-                lane={activeCamera.lane}
-                direction={activeCamera.direction}
-                onDetectionUpdate={(data) => handleDetectionUpdate(activeCamera.id, data)}
-                onModelLoaded={(loaded) => setIsAiLoading(!loaded)}
-              />
-            )}
-          </div>
-
-          {/* Right Column: Traffic Analytics Stats */}
-          <div>
-            <TrafficAnalytics
-              counts={displayLiveCounts}
-              vehicleInOut={mergedVehicleInOut}
-              inCount={displayInCount}
-              outCount={displayOutCount}
-              activeCount={displayActiveCount}
-              cameras={cameras}
-              cameraStats={dbCameraStats}
-              cameraLiveVehicleInOut={cameraVehicleInOutMap}
-            />
-          </div>
+      {/* Main Content Pane */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+        {/* Fixed Header Navigation */}
+        <div style={{ flexShrink: 0, zIndex: 30, background: 'var(--bg-body)' }}>
+          <Navbar
+            onOpenAddCamera={() => setIsModalOpen(true)}
+            onOpenPlateScanner={() => setIsPlateModalOpen(true)}
+            onOpenLogin={() => setIsLoginModalOpen(true)}
+            onOpenRoleAccess={() => setIsRoleModalOpen(true)}
+            activeCameraName={activeCamera.cameraName}
+            isAiLoading={isAiLoading}
+          />
         </div>
 
-        {/* Bottom Section: Detection History Logs Table */}
-        <DetectionHistoryTable liveLogs={liveLogs} onClearLogs={() => setLiveLogs([])} />
-      </main>
+        {/* Scrollable Content Pane */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          <main className="app-container" style={{ paddingBottom: '2.5rem' }}>
+            <ModuleViews
+              moduleId={activeModule}
+              cameras={cameras}
+              activeCamera={activeCamera}
+              viewMode={viewMode}
+              handleDetectionUpdate={handleDetectionUpdate}
+              setIsAiLoading={setIsAiLoading}
+              displayLiveCounts={displayLiveCounts}
+              mergedVehicleInOut={mergedVehicleInOut}
+              displayInCount={displayInCount}
+              displayOutCount={displayOutCount}
+              displayActiveCount={displayActiveCount}
+              displayTotalDetections={displayTotalDetections}
+              dbCameraStats={dbCameraStats}
+              cameraVehicleInOutMap={cameraVehicleInOutMap}
+              liveLogs={liveLogs}
+              onClearLogs={() => {
+                setLiveLogs([]);
+                refetchDbAnalytics();
+              }}
+              onOpenPlateScanner={() => setIsPlateModalOpen(true)}
+              onOpenAddCamera={() => setIsModalOpen(true)}
+            />
+          </main>
+        </div>
+      </div>
 
       {/* Add Camera Modal */}
       <CameraFormModal
@@ -281,8 +293,57 @@ export function App() {
       <PlateScannerModal
         isOpen={isPlateModalOpen}
         onClose={() => setIsPlateModalOpen(false)}
-        onPlateSaved={() => refetchDbAnalytics()}
+        onPlateSaved={(plate, details) => {
+          refetchDbAnalytics();
+          const evt = details?.event || 'DETECTION';
+          const vType = (details?.vehicleType || 'CAR').toUpperCase();
+          const camId = activeCameraId || 'default-webcam';
+          if (evt === 'IN') {
+            setCameraInMap((prev) => ({ ...prev, [camId]: (prev[camId] || 0) + 1 }));
+            setLiveVehicleInOut((prev) => {
+              const current = prev[vType] || { in: 0, out: 0 };
+              return { ...prev, [vType]: { ...current, in: current.in + 1 } };
+            });
+          } else if (evt === 'OUT') {
+            setCameraOutMap((prev) => ({ ...prev, [camId]: (prev[camId] || 0) + 1 }));
+            setLiveVehicleInOut((prev) => {
+              const current = prev[vType] || { in: 0, out: 0 };
+              return { ...prev, [vType]: { ...current, out: current.out + 1 } };
+            });
+          }
+          const camObj = cameras.find((c) => c.id === camId);
+          const cameraName = camObj?.cameraName || 'Plate Scanner (ANPR)';
+          const locationName = camObj?.location || 'Intersection';
+          const newEntry: DetectionLogEntry = {
+            id: `scan-${camId}-${Date.now()}`,
+            cameraId: camId,
+            cameraName,
+            camera: { cameraName, location: locationName, lane: camObj?.lane },
+            vehicleType: vType,
+            plateNumber: plate,
+            plateConfidence: 0.95,
+            event: evt,
+            confidence: 0.98,
+            count: 1,
+            detectedAt: new Date().toISOString(),
+          };
+          setLiveLogs((prev) => [newEntry, ...prev]);
+        }}
         activeCameraId={activeCameraId}
+      />
+
+      {/* Admin Login Modal (Accessible from Navbar if needed) */}
+      <LoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSuccess={() => setIsRoleModalOpen(true)}
+      />
+
+      {/* User Role & JSON Module Access Inspector */}
+      <RoleAccessModal
+        isOpen={isRoleModalOpen}
+        onClose={() => setIsRoleModalOpen(false)}
+        onOpenLogin={() => setIsLoginModalOpen(true)}
       />
     </div>
   );

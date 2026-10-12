@@ -52,7 +52,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
   };
 
   return (
-    <div className="glass-panel" style={{ marginTop: '1.5rem', padding: '1.2rem', overflow: 'hidden' }}>
+    <div className="glass-panel" style={{ marginTop: '1rem', padding: '0.8rem', overflow: 'hidden' }}>
       {/* Table Header Controls */}
       <div
         style={{
@@ -245,21 +245,27 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
       </div>
 
       {/* Table Content */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-              <th style={{ padding: '8px 12px' }}>Timestamp</th>
-              <th style={{ padding: '8px 12px' }}>Camera</th>
-              <th style={{ padding: '8px 12px' }}>Vehicle Class</th>
-              <th style={{ padding: '8px 12px' }}>Number Plate (ANPR)</th>
-              <th style={{ padding: '8px 12px' }}>Track ID</th>
-              <th style={{ padding: '8px 12px' }}>Event</th>
-              <th style={{ padding: '8px 12px' }}>Confidence</th>
+              <th style={{ padding: '8px 8px' }}>Timestamp</th>
+              <th style={{ padding: '8px 8px' }}>Camera</th>
+              <th style={{ padding: '8px 8px' }}>Vehicle Class</th>
+              <th style={{ padding: '8px 8px' }}>Number Plate (ANPR)</th>
+              <th style={{ padding: '8px 8px' }}>Track ID</th>
+              <th style={{ padding: '8px 8px' }}>Event</th>
+              <th style={{ padding: '8px 8px' }}>Confidence</th>
             </tr>
           </thead>
           <tbody>
-            {logs.length === 0 ? (
+            {loading && logs.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  Loading detection records from server...
+                </td>
+              </tr>
+            ) : logs.length === 0 ? (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                   No detection logs found.
@@ -286,14 +292,14 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       transition: 'background 0.15s ease',
                     }}
                   >
-                    <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                    <td style={{ padding: '8px 8px', color: 'var(--text-secondary)' }}>
                       {new Date(log.detectedAt).toLocaleTimeString([], { hour12: false })}
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
                         {new Date(log.detectedAt).toLocaleDateString()}
                       </span>
                     </td>
 
-                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>
+                    <td style={{ padding: '8px 8px', fontWeight: 600 }}>
                       {log.camera?.cameraName || log.cameraName || 'CCTV Feed'}
                       {log.camera?.location && (
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
@@ -302,7 +308,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       )}
                     </td>
 
-                    <td style={{ padding: '10px 12px' }}>
+                    <td style={{ padding: '8px 8px' }}>
                       <span
                         style={{
                           background: vMeta.bg,
@@ -322,7 +328,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       </span>
                     </td>
 
-                    <td style={{ padding: '10px 12px' }}>
+                    <td style={{ padding: '8px 8px' }}>
                       {log.plateNumber ? (
                         <div
                           style={{
@@ -373,11 +379,11 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       )}
                     </td>
 
-                    <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
+                    <td style={{ padding: '8px 8px', color: 'var(--text-secondary)' }}>
                       #{log.trackId || 'N/A'}
                     </td>
 
-                    <td style={{ padding: '10px 12px' }}>
+                    <td style={{ padding: '8px 8px' }}>
                       {isEntry && (
                         <span
                           style={{
@@ -427,7 +433,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       )}
                     </td>
 
-                    <td style={{ padding: '10px 12px' }}>
+                    <td style={{ padding: '8px 8px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#059669' }}>
                         <ShieldCheck size={13} />
                         {Math.round((log.confidence || 0.9) * 100)}%
@@ -442,27 +448,35 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
       </div>
 
       {/* Pagination Controls */}
-      {totalPages > 1 && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginTop: '1rem',
-            paddingTop: '0.8rem',
-            borderTop: '1px solid var(--border-color)',
-            flexWrap: 'wrap',
-            gap: '8px',
-          }}
-        >
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-            Page {currentPage} of {totalPages}
-          </span>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '1rem',
+          paddingTop: '0.8rem',
+          borderTop: '1px solid var(--border-color)',
+          flexWrap: 'wrap',
+          gap: '8px',
+        }}
+      >
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+          {totalCount > 0 ? (
+            <>
+              Showing <strong>{(currentPage - 1) * pageSize + 1}</strong> -{' '}
+              <strong>{Math.min(currentPage * pageSize, totalCount)}</strong> of{' '}
+              <strong>{totalCount}</strong> records (Page {currentPage} of {totalPages})
+            </>
+          ) : (
+            'Showing 0 records'
+          )}
+        </span>
 
+        {totalPages > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
             <button
               onClick={() => setCurrentPage(1)}
-              disabled={currentPage === 1}
+              disabled={currentPage === 1 || loading}
               title="First Page"
               style={{
                 background: '#ffffff',
@@ -613,8 +627,8 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               <ChevronsRight size={14} />
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

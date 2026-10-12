@@ -25,6 +25,7 @@ export function useTrafficAnalytics({
   const [dbGlobalTotals, setDbGlobalTotals] = useState<AnalyticsSummaryState>({
     totalIn: 0,
     totalOut: 0,
+    totalDetections: 0,
     summary: { CAR: 0, TRUCK: 0, BUS: 0, MOTORCYCLE: 0 },
   });
 
@@ -47,6 +48,7 @@ export function useTrafficAnalytics({
         setDbGlobalTotals({
           totalIn: data.totalIn || 0,
           totalOut: data.totalOut || 0,
+          totalDetections: data.totalDetections || 0,
           summary: data.summary || {},
         });
         if (data.vehicleInOut) {
@@ -93,10 +95,17 @@ export function useTrafficAnalytics({
       liveCounts = aggregatedClassCounts;
     }
 
+    const totalDetections = Math.max(
+      dbGlobalTotals.totalDetections || 0,
+      inCount + outCount,
+      Object.values(liveCounts).reduce((acc, val) => acc + (val || 0), 0)
+    );
+
     return {
       inCount: Math.max(inCount, dbGlobalTotals.totalIn),
       outCount: Math.max(outCount, dbGlobalTotals.totalOut),
       activeCount,
+      totalDetections,
       liveCounts: { ...liveCounts, ...dbGlobalTotals.summary },
     };
   }, [
@@ -139,6 +148,7 @@ export function useTrafficAnalytics({
     displayInCount: displayMetrics.inCount,
     displayOutCount: displayMetrics.outCount,
     displayActiveCount: displayMetrics.activeCount,
+    displayTotalDetections: displayMetrics.totalDetections,
     displayLiveCounts: displayMetrics.liveCounts,
     mergedVehicleInOut,
     dbCameraStats,
