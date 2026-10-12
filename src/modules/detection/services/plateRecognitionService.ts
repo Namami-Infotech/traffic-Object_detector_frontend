@@ -458,10 +458,11 @@ class PlateRecognitionService {
 
             // STRICT: Match genuine Indian license plate format (e.g. DL1MB1331, DL9CAT2790, HP07D3066)
             if (validation.isValid && validation.cleanPlate) {
+              const baseConf = ocrConf > 0.6 ? ocrConf : 0.90;
               return {
                 plateNumber: validation.cleanPlate,
                 formattedPlate: validation.formattedPlate,
-                confidence: Math.round(Math.min(0.99, Math.max(0.20, ocrConf * (validation.confidenceAdjustment || 1.0))) * 100) / 100,
+                confidence: Math.round(Math.min(0.99, Math.max(0.80, baseConf * (validation.confidenceAdjustment || 1.0))) * 100) / 100,
                 rawText: text,
                 isValid: true,
                 cropDataUrl: cand.canvas.toDataURL('image/jpeg', 0.9),
