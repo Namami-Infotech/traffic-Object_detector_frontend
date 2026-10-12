@@ -33,6 +33,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [tapMarker, setTapMarker] = useState<{ x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const backCameraInputRef = useRef<HTMLInputElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
   const resetState = () => {
@@ -381,8 +382,18 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
 
         {/* Modal Body */}
         <div style={{ padding: '1.5rem' }}>
-          {/* Action buttons */}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '1.2rem' }}>
+          {/* Action buttons (Dedicated Mobile Back Camera + Gallery Upload) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '1.2rem' }}>
+            {/* Hidden Input for Direct Mobile Back Camera Capture */}
+            <input
+              type="file"
+              ref={backCameraInputRef}
+              onChange={handleFileUpload}
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+            />
+            {/* Hidden Input for Standard Photo Gallery Upload */}
             <input
               type="file"
               ref={fileInputRef}
@@ -390,52 +401,80 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               accept="image/*"
               style={{ display: 'none' }}
             />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '10px 14px',
-                background: '#0284c7',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                transition: 'background 0.2s ease',
-              }}
-            >
-              <Upload size={16} />
-              Upload Vehicle Photo
-            </button>
 
-            {videoRef && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
-                onClick={handleCaptureFromCamera}
+                type="button"
+                onClick={() => backCameraInputRef.current?.click()}
                 style={{
-                  flex: 1,
+                  flex: '1 1 180px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '8px',
-                  padding: '10px 14px',
-                  background: '#334155',
+                  padding: '11px 14px',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                   color: '#ffffff',
                   border: 'none',
-                  borderRadius: '8px',
+                  borderRadius: '9px',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
+                }}
+              >
+                <Camera size={18} />
+                <span>Open Back Camera 📷 (फोन का कैमरा)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  flex: '1 1 150px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '11px 14px',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '9px',
                   fontWeight: 600,
-                  fontSize: '0.85rem',
+                  fontSize: '0.84rem',
                   cursor: 'pointer',
                 }}
               >
-                <Camera size={16} />
-                Snapshot Camera
+                <Upload size={16} />
+                <span>Gallery / File</span>
               </button>
-            )}
+
+              {videoRef && (
+                <button
+                  type="button"
+                  onClick={handleCaptureFromCamera}
+                  style={{
+                    flex: '1 1 100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '8px 12px',
+                    background: '#334155',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Camera size={14} />
+                  <span>Snapshot Live Stream</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Vehicle Type Selection */}

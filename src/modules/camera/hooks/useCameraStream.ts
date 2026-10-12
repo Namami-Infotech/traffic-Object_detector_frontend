@@ -34,9 +34,16 @@ export function useCameraStream({
   const [isBroadcastingLocal, setIsBroadcastingLocal] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [retryTrigger, setRetryTrigger] = useState<number>(0);
+  // Default to 'environment' (Phone Back Camera) for real-world traffic scanning
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   const isRtsp = isRtspUrl(selectedCameraUrl, cameraType);
   const mjpegStreamUrl = isRtsp && cameraId ? cameraApi.getStreamUrl(cameraId) : '';
+
+  const toggleFacingMode = useCallback(() => {
+    setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
+    setRetryTrigger((prev) => prev + 1);
+  }, []);
 
   // 1. Listen for incoming remote camera frames over Socket.IO
   useEffect(() => {
@@ -165,7 +172,16 @@ export function useCameraStream({
           constraintsToTry.push({ video: { deviceId: { exact: targetDeviceId } } });
           constraintsToTry.push({ video: { deviceId: { ideal: targetDeviceId } } });
         }
-        constraintsToTry.push({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' } });
+        // Try requested facingMode (ideal: environment for back camera on phones)
+        constraintsToTry.push({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: { ideal: facingMode },
+          },
+        });
+        constraintsToTry.push({ video: { facingMode: { exact: facingMode } } });
+        constraintsToTry.push({ video: { facingMode } });
         constraintsToTry.push({ video: true });
 
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -231,7 +247,7 @@ export function useCameraStream({
         videoElem.srcObject = null;
       }
     };
-  }, [selectedCameraUrl, cameraType, deviceId, retryTrigger, cameraId, isRtsp, autoBroadcastLocal, hasRemoteFeed]);
+  }, [selectedCameraUrl, cameraType, deviceId, retryTrigger, cameraId, isRtsp, autoBroadcastLocal, hasRemoteFeed, facingMode]);
 
   const retryStream = useCallback(() => {
     setCameraError(null);
@@ -263,5 +279,7 @@ export function useCameraStream({
     isCameraRunning,
     isRtspStream: isRtsp,
     retryStream,
+    facingMode,
+    toggleFacingMode,
   };
 }

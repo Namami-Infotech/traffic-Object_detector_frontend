@@ -1,5 +1,5 @@
 import React from 'react';
-import { Maximize2, Minimize2, RefreshCw } from 'lucide-react';
+import { Maximize2, Minimize2, RefreshCw, SwitchCamera } from 'lucide-react';
 
 export interface CameraControlsProps {
   isFullscreen: boolean;
@@ -7,6 +7,8 @@ export interface CameraControlsProps {
   onToggleFullscreen: () => void;
   onReconnect?: () => void;
   showReconnect?: boolean;
+  onToggleFacingMode?: () => void;
+  facingMode?: 'environment' | 'user';
 }
 
 export const CameraControls: React.FC<CameraControlsProps> = ({
@@ -15,9 +17,39 @@ export const CameraControls: React.FC<CameraControlsProps> = ({
   onToggleFullscreen,
   onReconnect,
   showReconnect = false,
+  onToggleFacingMode,
+  facingMode,
 }) => {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      {onToggleFacingMode && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFacingMode();
+          }}
+          title={facingMode === 'environment' ? 'Switch to Front Camera' : 'Switch to Back Camera (Back Camera)'}
+          style={{
+            background: facingMode === 'environment' ? '#eff6ff' : '#f8fafc',
+            border: facingMode === 'environment' ? '1px solid #bfdbfe' : '1px solid var(--border-color)',
+            color: facingMode === 'environment' ? '#1d4ed8' : 'var(--text-secondary)',
+            padding: '4px 9px',
+            borderRadius: '7px',
+            fontSize: '0.76rem',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <SwitchCamera size={13} />
+          <span>{facingMode === 'environment' ? 'Back Cam 📷' : 'Front Cam 🤳'}</span>
+        </button>
+      )}
+
       {showReconnect && onReconnect && (
         <button
           type="button"

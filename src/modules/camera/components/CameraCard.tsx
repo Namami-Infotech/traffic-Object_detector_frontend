@@ -84,6 +84,8 @@ export const CameraCard: React.FC<CameraCardProps> = ({
     isCameraRunning,
     isRtspStream,
     retryStream,
+    facingMode,
+    toggleFacingMode,
   } = useCameraStream({
     cameraId,
     cameraName,
@@ -241,13 +243,15 @@ export const CameraCard: React.FC<CameraCardProps> = ({
           )}
         </div>
 
-        {/* Right Side: Action Controls (Reconnect, Full Screen) */}
+        {/* Right Side: Action Controls (Reconnect, Full Screen, Flip Camera) */}
         <CameraControls
           isFullscreen={isFullscreen}
           isCameraRunning={isCameraRunning}
           onToggleFullscreen={toggleFullscreen}
           onReconnect={retryStream}
           showReconnect={isRtspStream}
+          onToggleFacingMode={isLocalStreamActive ? toggleFacingMode : undefined}
+          facingMode={facingMode}
         />
       </div>
 
