@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => {
           secure: false,
           configure: (proxy) => {
             proxy.on('error', (err: any) => {
-              // Suppress noisy client disconnect / reset errors on page reload
-              if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED') return;
+              // Suppress noisy disconnect / restart errors
+              if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED' || err.code === 'ECONNREFUSED') return;
             });
           },
         },
@@ -31,8 +31,8 @@ export default defineConfig(({ mode }) => {
           secure: false,
           configure: (proxy) => {
             proxy.on('error', (err: any) => {
-              // Suppress normal WebSocket close / tab reload aborts
-              if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED') return;
+              // Suppress normal WebSocket close / restart aborts
+              if (err.code === 'ECONNRESET' || err.code === 'ECONNABORTED' || err.code === 'ECONNREFUSED') return;
             });
           },
         },

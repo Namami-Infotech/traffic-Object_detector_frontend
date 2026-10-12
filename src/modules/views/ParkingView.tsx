@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Car, Plus, Trash2, Search, RefreshCw, X, MapPin } from 'lucide-react';
 import { parkingApi } from '../../services/api';
 export interface ParkingViewProps {
@@ -37,20 +37,24 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
     description: '',
   });
 
-  const [parkingSlots] = useState<Array<{ id: string; occupied: boolean; plate?: string }>>([
-    { id: 'A-01', occupied: true, plate: 'DL01AB1234' },
-    { id: 'A-02', occupied: false },
-    { id: 'A-03', occupied: true, plate: 'UP16CD5678' },
-    { id: 'A-04', occupied: false },
-    { id: 'A-05', occupied: true, plate: 'HR26EF9012' },
-    { id: 'A-06', occupied: true, plate: 'DL08GH3456' },
-    { id: 'B-01', occupied: false },
-    { id: 'B-02', occupied: true, plate: 'MH02JK7890' },
-    { id: 'B-03', occupied: false },
-    { id: 'B-04', occupied: false },
-    { id: 'B-05', occupied: true, plate: 'KA03LM1234' },
-    { id: 'B-06', occupied: false },
-  ]);
+  const selectedLot = parkingLots.find((l) => l.id === selectedLotId) || parkingLots[0];
+
+  const dynamicSlots = useMemo(() => {
+    if (!selectedLot) return [];
+    const total = Number(selectedLot.totalSpace || 0);
+    const occupied = Number(selectedLot.occupiedSpace || 0);
+
+    const displayCount = Math.min(Math.max(total, 0), 120);
+    return Array.from({ length: displayCount }, (_, i) => {
+      const bayLetter = String.fromCharCode(65 + Math.floor(i / 10)); // A, B, C...
+      const bayNumber = (i % 10) + 1;
+      const slotId = `${bayLetter}-${String(bayNumber).padStart(2, '0')}`;
+      return {
+        id: slotId,
+        occupied: i < occupied,
+      };
+    });
+  }, [selectedLot]);
 
   const fetchParkingLots = async () => {
     setIsParkingLoading(true);
@@ -485,31 +489,41 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
               </select>
             </div>
 
+            {/* Real-time Lot Slot Summary */}
+            {selectedLot && (
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '1rem', flexWrap: 'wrap', fontSize: '0.8rem', background: '#f8fafc', padding: '6px 12px', borderRadius: '6px' }}>
+                <div>Total Slots: <strong>{selectedLot.totalSpace || 0}</strong></div>
+                <div style={{ color: '#b91c1c' }}>Occupied: <strong>{selectedLot.occupiedSpace || 0}</strong></div>
+                <div style={{ color: '#15803d' }}>Available: <strong>{Math.max(0, (selectedLot.totalSpace || 0) - (selectedLot.occupiedSpace || 0))}</strong></div>
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '10px' }}>
-              {parkingSlots.map((slot) => (
-                <div
-                  key={slot.id}
-                  style={{
-                    background: slot.occupied ? '#fef2f2' : '#f0fdf4',
-                    border: slot.occupied ? '1px solid #fecaca' : '1px solid #bbf7d0',
-                    borderRadius: '8px',
-                    padding: '10px 8px',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: '0.92rem', fontWeight: 700, color: slot.occupied ? '#b91c1c' : '#15803d' }}>
-                    {slot.id}
-                  </div>
-                  <div style={{ fontSize: '0.68rem', fontWeight: 700, marginTop: '2px', color: slot.occupied ? '#dc2626' : '#16a34a' }}>
-                    {slot.occupied ? 'OCCUPIED' : 'FREE'}
-                  </div>
-                  {slot.plate && (
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px', fontFamily: 'monospace' }}>
-                      {slot.plate}
-                    </div>
-                  )}
+              {dynamicSlots.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  No parking slots configured for this area.
                 </div>
-              ))}
+              ) : (
+                dynamicSlots.map((slot) => (
+                  <div
+                    key={slot.id}
+                    style={{
+                      background: slot.occupied ? '#fef2f2' : '#f0fdf4',
+                      border: slot.occupied ? '1px solid #fecaca' : '1px solid #bbf7d0',
+                      borderRadius: '8px',
+                      padding: '10px 8px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.92rem', fontWeight: 700, color: slot.occupied ? '#b91c1c' : '#15803d' }}>
+                      {slot.id}
+                    </div>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, marginTop: '2px', color: slot.occupied ? '#dc2626' : '#16a34a' }}>
+                      {slot.occupied ? 'OCCUPIED' : 'FREE'}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         )}
