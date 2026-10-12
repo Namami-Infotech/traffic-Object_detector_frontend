@@ -43,33 +43,32 @@ export function useDetectionLogs({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Compute date range according to filter
+  // Compute date range according to filter (using YYYY-MM-DD for clean day-level querying)
   const getDateRange = useCallback(() => {
     const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
     if (dateFilter === 'TODAY') {
-      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      return { startDate: s.toISOString(), endDate: e.toISOString() };
+      const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      return { startDate: todayStr, endDate: todayStr };
     }
     if (dateFilter === 'YESTERDAY') {
-      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0, 0);
-      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
-      return { startDate: s.toISOString(), endDate: e.toISOString() };
+      const y = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const yStr = `${y.getFullYear()}-${pad(y.getMonth() + 1)}-${pad(y.getDate())}`;
+      return { startDate: yStr, endDate: yStr };
     }
     if (dateFilter === 'LAST_7_DAYS') {
-      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6, 0, 0, 0, 0);
-      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      return { startDate: s.toISOString(), endDate: e.toISOString() };
+      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+      const sStr = `${s.getFullYear()}-${pad(s.getMonth() + 1)}-${pad(s.getDate())}`;
+      const eStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      return { startDate: sStr, endDate: eStr };
     }
     if (dateFilter === 'THIS_MONTH') {
-      const s = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-      const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-      return { startDate: s.toISOString(), endDate: e.toISOString() };
+      const sStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`;
+      const eStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      return { startDate: sStr, endDate: eStr };
     }
     if (dateFilter === 'CUSTOM') {
-      const s = customStartDate ? new Date(customStartDate + 'T00:00:00').toISOString() : undefined;
-      const e = customEndDate ? new Date(customEndDate + 'T23:59:59.999').toISOString() : undefined;
-      return { startDate: s, endDate: e };
+      return { startDate: customStartDate || undefined, endDate: customEndDate || undefined };
     }
     return { startDate: undefined, endDate: undefined };
   }, [dateFilter, customStartDate, customEndDate]);
@@ -130,17 +129,35 @@ export function useDetectionLogs({
     return () => clearInterval(interval);
   }, [fetchLogs]);
 
-  // On page 1 with no filters, seamlessly show brand-new live detections
+  // On page 1 with no filters, seamlessly show brand-new detections without expiring/vanishing
   const displayLogs = useMemo(() => {
-    if (currentPage !== 1 || liveLogs.length === 0 || debouncedSearch || eventFilter !== 'ALL' || vehicleFilter !== 'ALL' || (dateFilter !== 'TODAY' && dateFilter !== 'ALL')) {
+    if (
+      currentPage !== 1 ||
+      liveLogs.length === 0 ||
+      debouncedSearch ||
+      eventFilter !== 'ALL' ||
+      vehicleFilter !== 'ALL' ||
+      (dateFilter !== 'TODAY' && dateFilter !== 'ALL')
+    ) {
       return logs;
     }
 
     const existingIds = new Set(logs.map((l) => l.id));
     const freshLive = liveLogs.filter((l) => {
+      // If already present in DB by ID
       if (existingIds.has(l.id)) return false;
-      const ageMs = Date.now() - new Date(l.detectedAt).getTime();
-      return ageMs < 8000;
+      // If DB logs already contain this exact plate detected within the last 60 seconds, avoid duplicate
+      if (
+        l.plateNumber &&
+        logs.some(
+          (dbLog) =>
+            dbLog.plateNumber === l.plateNumber &&
+            Math.abs(new Date(dbLog.detectedAt).getTime() - new Date(l.detectedAt).getTime()) < 60000
+        )
+      ) {
+        return false;
+      }
+      return true;
     });
 
     if (freshLive.length === 0) return logs;

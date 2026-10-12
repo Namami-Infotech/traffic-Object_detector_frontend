@@ -315,15 +315,15 @@ export function App() {
           const cameraName = camObj?.cameraName || 'Plate Scanner (ANPR)';
           const locationName = camObj?.location || 'Intersection';
           const newEntry: DetectionLogEntry = {
-            id: `scan-${camId}-${Date.now()}`,
+            id: (details as any)?.dbId || `scan-${camId}-${Date.now()}`,
             cameraId: camId,
             cameraName,
             camera: { cameraName, location: locationName, lane: camObj?.lane },
             vehicleType: vType,
             plateNumber: plate,
-            plateConfidence: 0.95,
+            plateConfidence: (details as any)?.confidence || 0.95,
             event: evt,
-            confidence: 0.98,
+            confidence: (details as any)?.confidence || 0.95,
             count: 1,
             detectedAt: new Date().toISOString(),
           };

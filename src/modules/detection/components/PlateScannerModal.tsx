@@ -255,26 +255,40 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
     if (!clean) return;
     const evt = customDirection || scanDirection;
     const vType = (customVehicle || vehicleType).toUpperCase();
+    const camId = activeCameraId || 'default-webcam';
 
     try {
-      await detectionService.logEvent({
-        cameraId: activeCameraId,
+      const res = await detectionService.logEvent({
+        cameraId: camId,
         vehicleType: vType,
         plateNumber: clean,
         plateConfidence: confScore,
-        confidence: 0.98,
+        confidence: confScore || 0.95,
         event: evt,
         inCount: evt === 'IN' ? 1 : 0,
         outCount: evt === 'OUT' ? 1 : 0,
         count: 1,
       });
 
+      if (res && (res as any).success === false) {
+        throw new Error((res as any).message || 'Server rejected detection log');
+      }
+
+      const savedData = res?.data || (res as any);
+      const dbId = savedData?.id;
+
       setIsSaved(true);
-      onPlateSaved?.(clean, { vehicleType: vType, event: evt });
+      onPlateSaved?.(clean, {
+        vehicleType: vType,
+        event: evt,
+        dbId,
+        confidence: confScore,
+      } as any);
       const dirText = evt === 'IN' ? 'Entry (IN ↗)' : evt === 'OUT' ? 'Exit (OUT ↘)' : 'Detection';
       setStatusMessage(`✅ Saved plate "${clean}" (${dirText} - ${vType}) to MySQL database successfully!`);
     } catch (saveErr: any) {
-      setStatusMessage(`⚠️ Saved locally, DB notice: ${saveErr.message}`);
+      console.error('Save to database error:', saveErr);
+      setStatusMessage(`❌ Database Save Failed: ${saveErr.message || 'Error communicating with server'}`);
     }
   };
 
