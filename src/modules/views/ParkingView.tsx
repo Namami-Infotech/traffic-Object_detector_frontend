@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Car, Plus, Trash2, Search, RefreshCw, X, MapPin } from 'lucide-react';
 import { parkingApi } from '../../services/api';
-import { MultiCameraGrid } from '../camera/components/MultiCameraGrid';
-import { CameraCard } from '../camera/components/CameraCard';
-import { TrafficAnalytics } from '../analytics/components/TrafficAnalytics';
-
 export interface ParkingViewProps {
   canWrite?: boolean;
   canDelete?: boolean;
@@ -25,20 +21,8 @@ export interface ParkingViewProps {
 export const ParkingView: React.FC<ParkingViewProps> = ({
   canWrite = false,
   canDelete = false,
-  cameras = [],
-  activeCamera,
-  viewMode = 'GRID',
-  handleDetectionUpdate,
-  setIsAiLoading,
-  displayLiveCounts = {},
-  mergedVehicleInOut = {},
-  displayInCount = 0,
-  displayOutCount = 0,
-  displayActiveCount = 0,
-  dbCameraStats = {},
-  cameraVehicleInOutMap = {},
 }) => {
-  const [parkingTab, setParkingTab] = useState<'TABLE' | 'AREAS' | 'SLOTS' | 'CAMERAS'>('TABLE');
+  const [parkingTab, setParkingTab] = useState<'TABLE' | 'AREAS' | 'SLOTS'>('TABLE');
   const [parkingLots, setParkingLots] = useState<any[]>([]);
   const [parkingSearch, setParkingSearch] = useState('');
   const [selectedLotId, setSelectedLotId] = useState<string>('');
@@ -123,16 +107,6 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
     }
   };
 
-  const handleUpdateOccupancy = async (id: string, delta: number) => {
-    try {
-      await parkingApi.updateOccupancy(id, delta);
-      fetchParkingLots();
-      window.dispatchEvent(new CustomEvent('parking-updated'));
-    } catch {
-      // ignore
-    }
-  };
-
   const totalCapacityAll = parkingLots.reduce((acc, p) => acc + (p.totalSpace || 0), 0);
   const totalOccupiedAll = parkingLots.reduce((acc, p) => acc + (p.occupiedSpace || 0), 0);
   const totalAvailableAll = Math.max(0, totalCapacityAll - totalOccupiedAll);
@@ -210,9 +184,9 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {/* Tab Pills */}
             <div style={{ display: 'flex', background: '#f8fafc', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              {(['TABLE', 'AREAS', 'SLOTS', 'CAMERAS'] as const).map((tab) => {
+              {(['TABLE', 'AREAS', 'SLOTS'] as const).map((tab) => {
                 const isActive = parkingTab === tab;
-                const label = tab === 'TABLE' ? 'Lots Table' : tab === 'AREAS' ? 'Cards' : tab === 'SLOTS' ? 'Slots Matrix' : 'Live Gate CCTV';
+                const label = tab === 'TABLE' ? 'Lots Table' : tab === 'AREAS' ? 'Cards' : 'Slots Matrix';
                 return (
                   <button
                     key={tab}
@@ -331,9 +305,7 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Total Space</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Occupied</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Available Free</th>
-                    <th style={{ padding: '8px 8px', fontWeight: 600, minWidth: '120px' }}>Occupancy Rate</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Car (₹/hr)</th>
-                    <th style={{ padding: '8px 8px', fontWeight: 600 }}>Bike (₹/hr)</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Status</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
                   </tr>
@@ -354,7 +326,6 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                       )
                       .map((lot, idx) => {
                         const available = Math.max(0, lot.totalSpace - lot.occupiedSpace);
-                        const percent = lot.totalSpace > 0 ? Math.round((lot.occupiedSpace / lot.totalSpace) * 100) : 0;
                         const isFull = lot.occupiedSpace >= lot.totalSpace;
 
                         return (
@@ -406,27 +377,9 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                             <td style={{ padding: '8px 8px', fontWeight: 700, color: '#059669' }}>
                               {available} Free
                             </td>
-                            <td style={{ padding: '8px 8px' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <div style={{ flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                                <div
-                                  style={{
-                                    width: `${percent}%`,
-                                    height: '100%',
-                                    background: percent > 85 ? '#ef4444' : percent > 60 ? '#f59e0b' : '#10b981',
-                                  }}
-                                />
-                                </div>
-                                <span style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                                  {percent}%
-                                </span>
-                              </div>
-                            </td>
+
                             <td style={{ padding: '8px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>
                               ₹{Number(lot.pricePerHour || 0)}
-                            </td>
-                            <td style={{ padding: '8px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                              ₹{Number(lot.priceTwoWheeler || 20)}
                             </td>
                             <td style={{ padding: '8px 8px' }}>
                               <span
@@ -445,60 +398,6 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                             </td>
                             <td style={{ padding: '8px 8px', textAlign: 'right' }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '5px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateOccupancy(lot.id, 1)}
-                                  title="Vehicle In (+1)"
-                                  style={{
-                                    background: '#ecfdf5',
-                                    color: '#059669',
-                                    border: '1px solid #a7f3d0',
-                                    padding: '3px 7px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  + In
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdateOccupancy(lot.id, -1)}
-                                  title="Vehicle Out (-1)"
-                                  style={{
-                                    background: '#fee2e2',
-                                    color: '#b91c1c',
-                                    border: '1px solid #fca5a5',
-                                    padding: '3px 7px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  - Out
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedLotId(lot.id);
-                                    setParkingTab('SLOTS');
-                                  }}
-                                  title="View Bays"
-                                  style={{
-                                    background: '#ffffff',
-                                    color: 'var(--text-secondary)',
-                                    border: '1px solid var(--border-color)',
-                                    padding: '3px 7px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.72rem',
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
-                                  }}
-                                >
-                                  Bays
-                                </button>
                                 {canDelete && (
                                   <button
                                     type="button"
@@ -611,45 +510,6 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                   )}
                 </div>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: LIVE GATE CAMERAS */}
-        {parkingTab === 'CAMERAS' && (
-          <div className="app-main-grid" style={{ marginTop: '0.5rem' }}>
-            <div>
-              {viewMode === 'GRID' ? (
-                <MultiCameraGrid
-                  cameras={cameras}
-                  onDetectionUpdate={handleDetectionUpdate || (() => {})}
-                  onModelLoaded={(loaded) => setIsAiLoading && setIsAiLoading(!loaded)}
-                />
-              ) : (
-                <CameraCard
-                  selectedCameraUrl={activeCamera?.rtspUrl}
-                  cameraType={activeCamera?.cameraType || 'WEBCAM'}
-                  cameraId={activeCamera?.id}
-                  cameraName={activeCamera?.cameraName}
-                  location={activeCamera?.location}
-                  lane={activeCamera?.lane}
-                  direction={activeCamera?.direction}
-                  onDetectionUpdate={(data) => handleDetectionUpdate && handleDetectionUpdate(activeCamera?.id, data)}
-                  onModelLoaded={(loaded) => setIsAiLoading && setIsAiLoading(!loaded)}
-                />
-              )}
-            </div>
-            <div>
-              <TrafficAnalytics
-                counts={displayLiveCounts}
-                vehicleInOut={mergedVehicleInOut}
-                inCount={displayInCount}
-                outCount={displayOutCount}
-                activeCount={displayActiveCount}
-                cameras={cameras}
-                cameraStats={dbCameraStats as any}
-                cameraLiveVehicleInOut={cameraVehicleInOutMap}
-              />
             </div>
           </div>
         )}
