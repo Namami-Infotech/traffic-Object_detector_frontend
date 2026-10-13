@@ -112,6 +112,28 @@ export function App() {
         camObj?.cameraName || (camId === 'default-webcam' ? 'Local Webcam / USB Camera' : `Camera #${camId.substring(0, 6)}`);
       const locationName = camObj?.location || 'Intersection';
 
+      // REAL-TIME AUTO-UPDATE: Immediately replace '—' with genuine recognized number plate
+      if (data.plateUpdatedEvents && data.plateUpdatedEvents.length > 0) {
+        setLiveLogs((prev) => {
+          let hasChanges = false;
+          const nextLogs = prev.map((entry) => {
+            const match = data.plateUpdatedEvents!.find(
+              (p) => p.trackId === entry.trackId && (!entry.cameraId || entry.cameraId === camId)
+            );
+            if (match && (!entry.plateNumber || entry.plateNumber === '—' || entry.plateNumber !== match.plateNumber)) {
+              hasChanges = true;
+              return {
+                ...entry,
+                plateNumber: match.plateNumber,
+                plateConfidence: match.plateConfidence ?? entry.plateConfidence,
+              };
+            }
+            return entry;
+          });
+          return hasChanges ? nextLogs : prev;
+        });
+      }
+
       const newEntries: DetectionLogEntry[] = [];
 
       if (data.detectionEvents && data.detectionEvents.length > 0) {

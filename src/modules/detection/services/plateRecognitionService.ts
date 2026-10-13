@@ -16,6 +16,11 @@ export interface PlateRecognitionResult {
 class PlateRecognitionService {
   private worker: any = null;
   private isProcessing: boolean = false;
+  private queue: Array<{
+    canvasOrImage: HTMLCanvasElement | HTMLImageElement | string;
+    isDirectCrop: boolean;
+    resolve: (res: PlateRecognitionResult) => void;
+  }> = [];
   private initPromise: Promise<void> | null = null;
 
   /**
@@ -283,7 +288,14 @@ class PlateRecognitionService {
     };
 
     if (this.isProcessing) {
-      return emptyResult;
+      // Keep queue bounded to at most 2 items to ensure fresh frames
+      if (this.queue.length >= 2) {
+        const dropped = this.queue.shift();
+        dropped?.resolve(emptyResult);
+      }
+      return new Promise<PlateRecognitionResult>((resolve) => {
+        this.queue.push({ canvasOrImage, isDirectCrop, resolve });
+      });
     }
 
     try {
@@ -532,6 +544,12 @@ class PlateRecognitionService {
       return emptyResult;
     } finally {
       this.isProcessing = false;
+      if (this.queue.length > 0) {
+        const next = this.queue.shift()!;
+        this.recognizePlate(next.canvasOrImage, next.isDirectCrop)
+          .then(next.resolve)
+          .catch(() => next.resolve(emptyResult));
+      }
     }
   }
 

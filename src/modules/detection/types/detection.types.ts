@@ -29,6 +29,13 @@ export interface LineCrossingEvent {
   timestamp: number;
 }
 
+export interface PlateUpdatedEvent {
+  trackId: number;
+  plateNumber: string;
+  plateConfidence?: number;
+  cameraId?: string;
+}
+
 export interface DetectionUpdateData {
   counts: Record<string, number>;
   inCount: number;
@@ -37,6 +44,7 @@ export interface DetectionUpdateData {
   inEvents?: Array<{ id: number; label: string; score?: number; timestamp: number }>;
   outEvents?: Array<{ id: number; label: string; score?: number; timestamp: number }>;
   detectionEvents?: Array<{ id: number; label: string; score?: number; timestamp: number }>;
+  plateUpdatedEvents?: PlateUpdatedEvent[];
   log: any[];
 }
 

@@ -5,7 +5,7 @@ import { detectionService } from '../services/detectionService';
 import { socketClient } from '../../../services/socket/socketClient';
 import { SOCKET_EVENTS } from '../../../services/socket/socketEvents';
 import { TRAFFIC_CONFIG, calculateTrafficDensity } from '../../../app/config/traffic.config';
-import type { LineConfig, DetectionUpdateData } from '../types/detection.types';
+import type { LineConfig, DetectionUpdateData, PlateUpdatedEvent } from '../types/detection.types';
 import { plateRecognitionService } from '../services/plateRecognitionService';
 
 export interface UseDetectionTrackerOptions {
@@ -46,8 +46,12 @@ export function useDetectionTracker({
   const outCountRef = useRef<number>(initialOutCount);
   const lastDetectTimeRef = useRef<number>(0);
   const reqAnimRef = useRef<number | null>(null);
-  const scannedTrackIdsRef = useRef<Set<number>>(new Set());
   const trackPlatesRef = useRef<Map<number, { plateNumber: string; formattedPlate: string; confidence: number }>>(new Map());
+  const scanAttemptsRef = useRef<Map<number, number>>(new Map());
+  const bestBboxAreaRef = useRef<Map<number, number>>(new Map());
+  const lastScanTimeRef = useRef<Map<number, number>>(new Map());
+  const latestObjectsRef = useRef<any[]>([]);
+  const latestCountsRef = useRef<Record<string, number>>({});
 
   const [inCount, setInCount] = useState<number>(initialInCount);
   const [outCount, setOutCount] = useState<number>(initialOutCount);
@@ -153,96 +157,116 @@ export function useDetectionTracker({
         sourceHeight
       );
 
-      // Save confirmed vehicle detection to DB with ANPR scanning
+      // Central helper to trigger ANPR plate recognition on best vehicle frames
+      const triggerPlateScan = (
+        sourceImg: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+        trackId: number,
+        bbox: [number, number, number, number],
+        vehicleLabel: string,
+        eventContext: 'DETECTION' | 'IN' | 'OUT' = 'DETECTION'
+      ) => {
+        if (trackPlatesRef.current.has(trackId)) return;
+
+        const attempts = scanAttemptsRef.current.get(trackId) || 0;
+        if (attempts >= 4) return;
+
+        scanAttemptsRef.current.set(trackId, attempts + 1);
+        lastScanTimeRef.current.set(trackId, performance.now());
+
+        const plateRoiCanvas = plateRecognitionService.cropPlateRegion(sourceImg, bbox, vehicleLabel);
+        if (!plateRoiCanvas) return;
+
+        plateRecognitionService
+          .recognizePlate(plateRoiCanvas, true)
+          .then((plateRes) => {
+            const hasPlate = Boolean(plateRes && plateRes.plateNumber && plateRes.isValid);
+            if (hasPlate && plateRes.plateNumber) {
+              const genuineConf = plateRes.confidence || 0.88;
+              const plateStr = plateRes.formattedPlate || plateRes.plateNumber;
+
+              trackPlatesRef.current.set(trackId, {
+                plateNumber: plateRes.plateNumber,
+                formattedPlate: plateStr,
+                confidence: genuineConf,
+              });
+
+              // Mark vehicle as completed
+              scanAttemptsRef.current.set(trackId, 99);
+
+              const plateEvt: PlateUpdatedEvent = {
+                trackId,
+                plateNumber: plateStr,
+                plateConfidence: genuineConf,
+                cameraId: cameraId || 'default-webcam',
+              };
+
+              // Real-time table auto-update: notify parent immediately to replace '—' with actual plate
+              onDetectionUpdate?.({
+                counts: latestCountsRef.current,
+                inCount: inCountRef.current,
+                outCount: outCountRef.current,
+                activeCount: latestObjectsRef.current.filter((o) => o.disappeared === 0).length,
+                plateUpdatedEvents: [plateEvt],
+                log: latestObjectsRef.current,
+              });
+
+              // Persist confirmed plate to DB
+              detectionService.logEvent({
+                cameraId: cameraId || 'default-webcam',
+                vehicleType: (vehicleLabel || 'car').toUpperCase(),
+                trackId,
+                event: eventContext,
+                plateNumber: plateStr,
+                plateConfidence: genuineConf,
+                confidence: genuineConf,
+                count: 1,
+                inCount: inCountRef.current,
+                outCount: outCountRef.current,
+              });
+            }
+          })
+          .catch(() => {});
+      };
+
+      const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
+
+      // Save confirmed vehicle detection to DB
       if (detectionEvents.length > 0) {
         detectionEvents.forEach((evt) => {
           updateVehicleTally(evt.label);
 
-          const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
           const isVehicle = ['car', 'truck', 'bus'].includes((evt.label || '').toLowerCase());
           const cachedPlate = trackPlatesRef.current.get(evt.id);
 
           if (cachedPlate) {
             (evt as any).plateNumber = cachedPlate.formattedPlate || cachedPlate.plateNumber;
             (evt as any).plateConfidence = cachedPlate.confidence;
-
-            detectionService.logEvent({
-              cameraId: cameraId || 'default-webcam',
-              vehicleType: (evt.label || 'car').toUpperCase(),
-              trackId: evt.id,
-              event: 'DETECTION',
-              plateNumber: cachedPlate.formattedPlate || cachedPlate.plateNumber,
-              plateConfidence: cachedPlate.confidence,
-              confidence: cachedPlate.confidence || evt.score || 0.95,
-              count: 1,
-              inCount: inCountRef.current,
-              outCount: outCountRef.current,
-            });
-            return;
           }
 
-          // Trigger ANPR plate recognition on DETECTION event if vehicle and not yet scanned
-          if (activeSource && isVehicle && !scannedTrackIdsRef.current.has(evt.id)) {
-            scannedTrackIdsRef.current.add(evt.id);
-            const trackedObj = objects.find((o) => o.id === evt.id);
-            if (trackedObj && trackedObj.bbox) {
-              const plateRoiCanvas = plateRecognitionService.cropPlateRegion(activeSource, trackedObj.bbox, evt.label);
-              if (plateRoiCanvas) {
-                plateRecognitionService.recognizePlate(plateRoiCanvas, false).then((plateRes) => {
-                  const hasPlate = Boolean(plateRes && plateRes.plateNumber && plateRes.isValid);
-                  const genuineConf = hasPlate && plateRes.confidence ? plateRes.confidence : (evt.score || 0.95);
-                  const plateStr = hasPlate ? (plateRes.formattedPlate || plateRes.plateNumber)! : undefined;
-
-                  if (hasPlate && plateStr) {
-                    trackPlatesRef.current.set(evt.id, {
-                      plateNumber: plateRes.plateNumber!,
-                      formattedPlate: plateStr,
-                      confidence: genuineConf,
-                    });
-                    (evt as any).plateNumber = plateStr;
-                    (evt as any).plateConfidence = genuineConf;
-                  }
-
-                  detectionService.logEvent({
-                    cameraId: cameraId || 'default-webcam',
-                    vehicleType: (evt.label || 'car').toUpperCase(),
-                    trackId: evt.id,
-                    event: 'DETECTION',
-                    plateNumber: plateStr,
-                    plateConfidence: hasPlate ? genuineConf : undefined,
-                    confidence: genuineConf,
-                    count: 1,
-                    inCount: inCountRef.current,
-                    outCount: outCountRef.current,
-                  });
-                }).catch(() => {
-                  detectionService.logEvent({
-                    cameraId: cameraId || 'default-webcam',
-                    vehicleType: (evt.label || 'car').toUpperCase(),
-                    trackId: evt.id,
-                    event: 'DETECTION',
-                    confidence: evt.score || 0.95,
-                    count: 1,
-                    inCount: inCountRef.current,
-                    outCount: outCountRef.current,
-                  });
-                });
-                return;
-              }
-            }
-          }
-
-          // Default log for non-vehicles or if no ROI
           detectionService.logEvent({
             cameraId: cameraId || 'default-webcam',
             vehicleType: (evt.label || 'car').toUpperCase(),
             trackId: evt.id,
             event: 'DETECTION',
-            confidence: evt.score || 0.95,
+            plateNumber: cachedPlate ? cachedPlate.formattedPlate || cachedPlate.plateNumber : undefined,
+            plateConfidence: cachedPlate?.confidence,
+            confidence: cachedPlate?.confidence || evt.score || 0.95,
             count: 1,
             inCount: inCountRef.current,
             outCount: outCountRef.current,
           });
+
+          // Early scan if vehicle is already clear on initial detection frame
+          if (activeSource && isVehicle) {
+            const trackedObj = objects.find((o) => o.id === evt.id);
+            if (trackedObj && trackedObj.bbox) {
+              const [, , w, h] = trackedObj.bbox;
+              if (w >= 85 && h >= 55) {
+                bestBboxAreaRef.current.set(evt.id, w * h);
+                triggerPlateScan(activeSource, evt.id, trackedObj.bbox, evt.label, 'DETECTION');
+              }
+            }
+          }
         });
       }
 
@@ -254,90 +278,33 @@ export function useDetectionTracker({
         inEvents.forEach((evt) => {
           updateVehicleTally(evt.label, 'IN');
 
-          const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
           const isVehicle = ['car', 'truck', 'bus'].includes((evt.label || '').toLowerCase());
           const cachedPlate = trackPlatesRef.current.get(evt.id);
 
           if (cachedPlate) {
             (evt as any).plateNumber = cachedPlate.formattedPlate || cachedPlate.plateNumber;
             (evt as any).plateConfidence = cachedPlate.confidence;
-
-            detectionService.logEvent({
-              cameraId: cameraId || 'default-webcam',
-              vehicleType: (evt.label || 'car').toUpperCase(),
-              trackId: evt.id,
-              event: 'IN',
-              plateNumber: cachedPlate.formattedPlate || cachedPlate.plateNumber,
-              plateConfidence: cachedPlate.confidence,
-              confidence: cachedPlate.confidence || (evt as any).score || 0.95,
-              count: 1,
-              inCount: currentIn,
-              outCount: outCountRef.current,
-            });
-            return;
           }
 
-          // Trigger asynchronous ANPR plate recognition on the vehicle
-          if (activeSource && isVehicle) {
-            const trackedObj = objects.find((o) => o.id === evt.id);
-            if (trackedObj && trackedObj.bbox) {
-              const plateRoiCanvas = plateRecognitionService.cropPlateRegion(activeSource, trackedObj.bbox, evt.label);
-              if (plateRoiCanvas) {
-                plateRecognitionService.recognizePlate(plateRoiCanvas, false).then((plateRes) => {
-                  const hasPlate = Boolean(plateRes && plateRes.plateNumber && plateRes.isValid);
-                  const genuineConf = hasPlate && plateRes.confidence ? plateRes.confidence : ((evt as any).score || 0.95);
-                  const plateStr = hasPlate ? (plateRes.formattedPlate || plateRes.plateNumber)! : undefined;
-
-                  if (hasPlate && plateStr) {
-                    trackPlatesRef.current.set(evt.id, {
-                      plateNumber: plateRes.plateNumber!,
-                      formattedPlate: plateStr,
-                      confidence: genuineConf,
-                    });
-                    (evt as any).plateNumber = plateStr;
-                    (evt as any).plateConfidence = genuineConf;
-                  }
-
-                  detectionService.logEvent({
-                    cameraId: cameraId || 'default-webcam',
-                    vehicleType: (evt.label || 'car').toUpperCase(),
-                    trackId: evt.id,
-                    event: 'IN',
-                    plateNumber: plateStr,
-                    plateConfidence: hasPlate ? genuineConf : undefined,
-                    confidence: genuineConf,
-                    count: 1,
-                    inCount: currentIn,
-                    outCount: outCountRef.current,
-                  });
-                }).catch(() => {
-                  detectionService.logEvent({
-                    cameraId: cameraId || 'default-webcam',
-                    vehicleType: (evt.label || 'car').toUpperCase(),
-                    trackId: evt.id,
-                    event: 'IN',
-                    confidence: (evt as any).score || 0.95,
-                    count: 1,
-                    inCount: currentIn,
-                    outCount: outCountRef.current,
-                  });
-                });
-                return;
-              }
-            }
-          }
-
-          // Default line crossing event (pedestrians or if no plate ROI)
           detectionService.logEvent({
             cameraId: cameraId || 'default-webcam',
             vehicleType: (evt.label || 'car').toUpperCase(),
             trackId: evt.id,
             event: 'IN',
-            confidence: (evt as any).score || 0.95,
+            plateNumber: cachedPlate ? cachedPlate.formattedPlate || cachedPlate.plateNumber : undefined,
+            plateConfidence: cachedPlate?.confidence,
+            confidence: cachedPlate?.confidence || (evt as any).score || 0.95,
             count: 1,
             inCount: currentIn,
             outCount: outCountRef.current,
           });
+
+          if (activeSource && isVehicle && !cachedPlate) {
+            const trackedObj = objects.find((o) => o.id === evt.id);
+            if (trackedObj && trackedObj.bbox) {
+              triggerPlateScan(activeSource, evt.id, trackedObj.bbox, evt.label, 'IN');
+            }
+          }
         });
       }
 
@@ -349,77 +316,12 @@ export function useDetectionTracker({
         outEvents.forEach((evt) => {
           updateVehicleTally(evt.label, 'OUT');
 
-          const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
           const isVehicle = ['car', 'truck', 'bus'].includes((evt.label || '').toLowerCase());
           const cachedPlate = trackPlatesRef.current.get(evt.id);
 
           if (cachedPlate) {
             (evt as any).plateNumber = cachedPlate.formattedPlate || cachedPlate.plateNumber;
             (evt as any).plateConfidence = cachedPlate.confidence;
-
-            detectionService.logEvent({
-              cameraId: cameraId || 'default-webcam',
-              vehicleType: (evt.label || 'car').toUpperCase(),
-              trackId: evt.id,
-              event: 'OUT',
-              plateNumber: cachedPlate.formattedPlate || cachedPlate.plateNumber,
-              plateConfidence: cachedPlate.confidence,
-              confidence: cachedPlate.confidence || (evt as any).score || 0.95,
-              count: 1,
-              inCount: inCountRef.current,
-              outCount: currentOut,
-            });
-            return;
-          }
-
-          // Trigger asynchronous ANPR plate recognition on the vehicle
-          if (activeSource && isVehicle) {
-            const trackedObj = objects.find((o) => o.id === evt.id);
-            if (trackedObj && trackedObj.bbox) {
-              const plateRoiCanvas = plateRecognitionService.cropPlateRegion(activeSource, trackedObj.bbox, evt.label);
-              if (plateRoiCanvas) {
-                plateRecognitionService.recognizePlate(plateRoiCanvas, false).then((plateRes) => {
-                  const hasPlate = Boolean(plateRes && plateRes.plateNumber && plateRes.isValid);
-                  const genuineConf = hasPlate && plateRes.confidence ? plateRes.confidence : ((evt as any).score || 0.95);
-                  const plateStr = hasPlate ? (plateRes.formattedPlate || plateRes.plateNumber)! : undefined;
-
-                  if (hasPlate && plateStr) {
-                    trackPlatesRef.current.set(evt.id, {
-                      plateNumber: plateRes.plateNumber!,
-                      formattedPlate: plateStr,
-                      confidence: genuineConf,
-                    });
-                    (evt as any).plateNumber = plateStr;
-                    (evt as any).plateConfidence = genuineConf;
-                  }
-
-                  detectionService.logEvent({
-                    cameraId: cameraId || 'default-webcam',
-                    vehicleType: (evt.label || 'car').toUpperCase(),
-                    trackId: evt.id,
-                    event: 'OUT',
-                    plateNumber: plateStr,
-                    plateConfidence: hasPlate ? genuineConf : undefined,
-                    confidence: genuineConf,
-                    count: 1,
-                    inCount: inCountRef.current,
-                    outCount: currentOut,
-                  });
-                }).catch(() => {
-                  detectionService.logEvent({
-                    cameraId: cameraId || 'default-webcam',
-                    vehicleType: (evt.label || 'car').toUpperCase(),
-                    trackId: evt.id,
-                    event: 'OUT',
-                    confidence: (evt as any).score || 0.95,
-                    count: 1,
-                    inCount: inCountRef.current,
-                    outCount: currentOut,
-                  });
-                });
-                return;
-              }
-            }
           }
 
           detectionService.logEvent({
@@ -427,11 +329,47 @@ export function useDetectionTracker({
             vehicleType: (evt.label || 'car').toUpperCase(),
             trackId: evt.id,
             event: 'OUT',
-            confidence: (evt as any).score || 0.95,
+            plateNumber: cachedPlate ? cachedPlate.formattedPlate || cachedPlate.plateNumber : undefined,
+            plateConfidence: cachedPlate?.confidence,
+            confidence: cachedPlate?.confidence || (evt as any).score || 0.95,
             count: 1,
             inCount: inCountRef.current,
             outCount: currentOut,
           });
+
+          if (activeSource && isVehicle && !cachedPlate) {
+            const trackedObj = objects.find((o) => o.id === evt.id);
+            if (trackedObj && trackedObj.bbox) {
+              triggerPlateScan(activeSource, evt.id, trackedObj.bbox, evt.label, 'OUT');
+            }
+          }
+        });
+      }
+
+      // BEST FRAME SELECTION: Dynamically scan moving vehicles when their bounding box is largest/clearest
+      if (activeSource) {
+        objects.forEach((obj) => {
+          const isVehicle = ['car', 'truck', 'bus'].includes((obj.label || '').toLowerCase());
+          if (!isVehicle || trackPlatesRef.current.has(obj.id)) return;
+
+          const attempts = scanAttemptsRef.current.get(obj.id) || 0;
+          if (attempts >= 4) return;
+
+          const [x, y, w, h] = obj.bbox;
+          // Must be sufficiently large and not cut off on video margins
+          if (w < 80 || h < 50) return;
+          if (x < 4 || (x + w) > (sourceWidth - 4) || y < 4 || (y + h) > (sourceHeight - 4)) return;
+
+          const area = w * h;
+          const prevBestArea = bestBboxAreaRef.current.get(obj.id) || 0;
+          const now = performance.now();
+          const lastScan = lastScanTimeRef.current.get(obj.id) || 0;
+
+          // Trigger if initial qualified frame OR bounding box area expanded significantly (>25% closer)
+          if ((prevBestArea === 0 || area > prevBestArea * 1.25) && (now - lastScan > 400)) {
+            bestBboxAreaRef.current.set(obj.id, area);
+            triggerPlateScan(activeSource, obj.id, obj.bbox, obj.label, 'DETECTION');
+          }
         });
       }
 
@@ -509,6 +447,8 @@ export function useDetectionTracker({
 
       setLiveCounts(currentClassCounts);
       setActiveVehicleCount(activeCountVal);
+      latestCountsRef.current = currentClassCounts;
+      latestObjectsRef.current = objects;
 
       onDetectionUpdate?.({
         counts: currentClassCounts,
