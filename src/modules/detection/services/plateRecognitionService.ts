@@ -162,11 +162,12 @@ class PlateRecognitionService {
   }
 
   /**
-   * Crop vehicle region with boundary safety and upscale for OCR
+   * Crop vehicle region with boundary safety, centered on bumper/plate area with adaptive upscaling
    */
   cropPlateRegion(
     source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
-    bbox: [number, number, number, number] // [x, y, width, height]
+    bbox: [number, number, number, number], // [x, y, width, height]
+    vehicleClass?: string
   ): HTMLCanvasElement | null {
     try {
       const [x, y, w, h] = bbox;
@@ -175,16 +176,30 @@ class PlateRecognitionService {
       const srcW = (source as any).videoWidth || (source as any).naturalWidth || (source as any).width || 640;
       const srcH = (source as any).videoHeight || (source as any).naturalHeight || (source as any).height || 480;
 
-      // Cover trunk lid + bumper (from 25% to 85% of vehicle height)
-      const plateRoiY = y + h * 0.25;
-      const plateRoiH = h * 0.65;
+      const isTruckOrBus = vehicleClass && ['truck', 'bus'].includes(vehicleClass.toLowerCase());
 
-      const cropX = Math.max(0, Math.min(x, srcW - 10));
-      const cropY = Math.max(0, Math.min(plateRoiY, srcH - 10));
-      const cropW = Math.max(10, Math.min(w, srcW - cropX));
-      const cropH = Math.max(10, Math.min(plateRoiH, srcH - cropY));
+      // Target bumper & plate zone:
+      // Horizontally: center 76% of vehicle (ignoring side mirrors & empty edges)
+      const padX = Math.round(w * 0.12);
+      const targetX = x + padX;
+      const targetW = w - padX * 2;
 
-      const scale = cropH < 70 ? 2.5 : cropH < 120 ? 1.8 : 1.3;
+      // Vertically:
+      // For truck/bus: lower 45% (bumper zone)
+      // For cars/motorcycles: lower 55% (trunk lid to bottom of bumper)
+      const topOffsetRatio = isTruckOrBus ? 0.48 : 0.40;
+      const heightRatio = isTruckOrBus ? 0.50 : 0.58;
+
+      const targetY = y + h * topOffsetRatio;
+      const targetH = h * heightRatio;
+
+      const cropX = Math.max(0, Math.min(targetX, srcW - 10));
+      const cropY = Math.max(0, Math.min(targetY, srcH - 10));
+      const cropW = Math.max(10, Math.min(targetW, srcW - cropX));
+      const cropH = Math.max(10, Math.min(targetH, srcH - cropY));
+
+      // Adaptive upscaling so OCR gets sharp, large characters (>25px per character)
+      const scale = cropW < 200 ? 3.0 : cropW < 350 ? 2.2 : cropW < 600 ? 1.6 : 1.2;
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(cropW * scale);
       canvas.height = Math.round(cropH * scale);
@@ -297,18 +312,21 @@ class PlateRecognitionService {
         const base64Data = baseCanvas.toDataURL('image/jpeg', 0.88);
         const backendRes: any = await detectionApi.recognizePlate(base64Data, isDirectCrop);
 
-        if (backendRes?.data?.isValid && backendRes?.data?.plateNumber) {
-          const validated = sanitizeAndValidatePlate(backendRes.data.plateNumber);
-          const finalPlate = validated.cleanPlate || backendRes.data.plateNumber;
-          const finalFormatted = validated.formattedPlate || backendRes.data.formattedPlate || finalPlate;
-          return {
-            plateNumber: finalPlate,
-            formattedPlate: finalFormatted,
-            confidence: backendRes.data.confidence !== undefined ? backendRes.data.confidence : 0.85,
-            rawText: backendRes.data.rawText || finalPlate,
-            isValid: true,
-            cropDataUrl: backendRes.data.cropDataUrl || base64Data,
-          };
+        const candidate = backendRes?.data?.plateNumber || backendRes?.data?.rawText;
+        if (candidate) {
+          const validated = sanitizeAndValidatePlate(candidate);
+          if (validated.isValid || backendRes?.data?.isValid) {
+            const finalPlate = validated.cleanPlate || backendRes?.data?.plateNumber || candidate.trim().toUpperCase();
+            const finalFormatted = validated.formattedPlate || backendRes?.data?.formattedPlate || finalPlate;
+            return {
+              plateNumber: finalPlate,
+              formattedPlate: finalFormatted,
+              confidence: backendRes?.data?.confidence !== undefined ? backendRes.data.confidence : 0.85,
+              rawText: backendRes?.data?.rawText || finalPlate,
+              isValid: true,
+              cropDataUrl: backendRes?.data?.cropDataUrl || base64Data,
+            };
+          }
         }
       } catch (backendErr) {
         console.warn('Backend EasyOCR ANPR unavailable, using in-browser fallback:', backendErr);
@@ -471,6 +489,20 @@ class PlateRecognitionService {
           }
         } catch (candErr) {
           console.warn(`Candidate ${cand.name} scan notice:`, candErr);
+        }
+      }
+
+      if (bestRawText) {
+        const relaxed = sanitizeAndValidatePlate(bestRawText);
+        if (relaxed.isValid && relaxed.cleanPlate) {
+          return {
+            plateNumber: relaxed.cleanPlate,
+            formattedPlate: relaxed.formattedPlate,
+            confidence: 0.78,
+            rawText: bestRawText,
+            isValid: true,
+            cropDataUrl: bestCropUrl,
+          };
         }
       }
 

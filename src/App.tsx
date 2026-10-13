@@ -126,6 +126,8 @@ export function App() {
             trackId: evt.id,
             event: 'DETECTION',
             confidence: (evt as any).score || 0.94,
+            plateNumber: (evt as any).plateNumber,
+            plateConfidence: (evt as any).plateConfidence,
             count: 1,
             detectedAt: new Date(evt.timestamp).toISOString(),
           });
@@ -161,6 +163,8 @@ export function App() {
             trackId: evt.id,
             event: 'IN',
             confidence: (evt as any).score || 0.95,
+            plateNumber: (evt as any).plateNumber,
+            plateConfidence: (evt as any).plateConfidence,
             count: 1,
             detectedAt: new Date(evt.timestamp).toISOString(),
           });
@@ -196,6 +200,8 @@ export function App() {
             trackId: evt.id,
             event: 'OUT',
             confidence: (evt as any).score || 0.92,
+            plateNumber: (evt as any).plateNumber,
+            plateConfidence: (evt as any).plateConfidence,
             count: 1,
             detectedAt: new Date(evt.timestamp).toISOString(),
           });
