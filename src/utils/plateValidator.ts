@@ -207,17 +207,20 @@ export function sanitizeAndValidatePlate(rawText: string): PlateValidationResult
 
         if (INDIAN_STATE_CODES.has(stateCandidate)) {
           const rest = combined.slice(2);
-          // Indian plates MUST end in 2-4 digits (cannot end with words/letters like TFILE)
-          const partialMatch = rest.match(/^([0-9IOS]{1,2})([A-Z]{0,3})([0-9ODQILZSBGA]{2,4})$/);
+          // Indian plates must have Series (1-3 letters) with 3-4 digits, or 4 digits (rejects noisy AR 55 54)
+          const mSeries = rest.match(/^([0-9IOS]{1,2})([A-Z]{1,3})([0-9ODQILZSBGA]{3,4})$/);
+          const mNoSeries = !mSeries ? rest.match(/^([0-9IOS]{1,2})([0-9ODQILZSBGA]{4})$/) : null;
+          const partialMatch = mSeries || mNoSeries;
           if (partialMatch) {
             const rtoClean = partialMatch[1].replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').padStart(2, '0');
-            const seriesClean = partialMatch[2]
+            const seriesClean = (mSeries ? partialMatch[2] : '')
               .replace(/0/g, 'O')
               .replace(/1/g, 'I')
               .replace(/6/g, 'G')
               .replace(/8/g, 'B')
               .replace(/5/g, 'S');
-            const numClean = partialMatch[3]
+            const rawNum = mSeries ? partialMatch[3] : partialMatch[2];
+            const numClean = rawNum
               .replace(/[ODQ]/g, '0')
               .replace(/[IL]/g, '1')
               .replace(/Z/g, '2')
