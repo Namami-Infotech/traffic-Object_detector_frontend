@@ -68,7 +68,7 @@ class AiModelService {
 
           const res = await detectionApi.detectVehicles(base64);
 
-          if (res && res.success && Array.isArray(res.data)) {
+          if (res && res.success && Array.isArray(res.data) && res.data.length > 0) {
             const scaleX = srcW / targetW;
             const scaleY = srcH / targetH;
 
@@ -85,9 +85,11 @@ class AiModelService {
                 score: v.confidence || 0.9,
               }));
 
-            this.lastDetections = yoloPredictions;
-            this.backendAvailable = true;
-            return yoloPredictions;
+            if (yoloPredictions.length > 0) {
+              this.lastDetections = yoloPredictions;
+              this.backendAvailable = true;
+              return yoloPredictions;
+            }
           }
         } catch (err) {
           this.backendAvailable = false;
