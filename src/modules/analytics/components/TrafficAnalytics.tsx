@@ -1,5 +1,5 @@
 import React from 'react';
-import { Car, Bus, Truck, Bike, Users, ArrowDownRight, ArrowUpRight, Scale, Activity } from 'lucide-react';
+import { Car, Bus, Truck, Users, ArrowDownRight, ArrowUpRight, Scale, Activity } from 'lucide-react';
 import { VehicleStatCard } from './VehicleStatCard';
 import { TrafficDensityBadge } from './TrafficDensityBadge';
 import { ParkingAvailabilityCard } from './ParkingAvailabilityCard';
@@ -60,14 +60,6 @@ export const TrafficAnalytics: React.FC<TrafficAnalyticsProps> = ({
       total: vehicleInOut?.TRUCK?.total ?? ((vehicleInOut?.TRUCK?.in || 0) + (vehicleInOut?.TRUCK?.out || 0)),
       icon: Truck,
       color: '#ef4444',
-    },
-    {
-      label: 'Motorcycles',
-      in: vehicleInOut?.MOTORCYCLE?.in || 0,
-      out: vehicleInOut?.MOTORCYCLE?.out || 0,
-      total: vehicleInOut?.MOTORCYCLE?.total ?? ((vehicleInOut?.MOTORCYCLE?.in || 0) + (vehicleInOut?.MOTORCYCLE?.out || 0)),
-      icon: Bike,
-      color: '#8b5cf6',
     },
     {
       label: 'Pedestrians',

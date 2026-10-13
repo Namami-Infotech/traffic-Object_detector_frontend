@@ -4,7 +4,6 @@ import {
   Car,
   Bus,
   Truck,
-  Bike,
   Users,
   ArrowDownRight,
   ArrowUpRight,
@@ -30,7 +29,6 @@ const VEHICLE_CONFIGS = [
   { key: 'CAR', label: 'Cars', icon: Car, color: '#10b981', bg: '#ecfdf5' },
   { key: 'BUS', label: 'Buses', icon: Bus, color: '#f59e0b', bg: '#fffbeb' },
   { key: 'TRUCK', label: 'Trucks', icon: Truck, color: '#ef4444', bg: '#fef2f2' },
-  { key: 'MOTORCYCLE', label: 'Motorcycles', icon: Bike, color: '#8b5cf6', bg: '#f5f3ff' },
   { key: 'PERSON', label: 'Pedestrians', icon: Users, color: '#06b6d4', bg: '#ecfeff' },
 ];
 

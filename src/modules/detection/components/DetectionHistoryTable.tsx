@@ -290,7 +290,6 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
             <option value="CAR">Car</option>
             <option value="TRUCK">Truck</option>
             <option value="BUS">Bus</option>
-            <option value="MOTORCYCLE">Motorcycle</option>
             <option value="PERSON">Pedestrian</option>
           </select>
         </div>

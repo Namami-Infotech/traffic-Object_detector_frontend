@@ -58,7 +58,6 @@ export function useDetectionTracker({
       CAR: { in: 0, out: 0 },
       TRUCK: { in: 0, out: 0 },
       BUS: { in: 0, out: 0 },
-      MOTORCYCLE: { in: 0, out: 0 },
       PERSON: { in: 0, out: 0 },
     }
   );
@@ -83,7 +82,7 @@ export function useDetectionTracker({
 
   const updateVehicleTally = useCallback((label: string, direction?: 'IN' | 'OUT') => {
     const upper = label.toUpperCase();
-    if (['CAR', 'TRUCK', 'BUS', 'MOTORCYCLE', 'PERSON'].includes(upper) && direction) {
+    if (['CAR', 'TRUCK', 'BUS', 'PERSON'].includes(upper) && direction) {
       setVehicleInOut((prev) => {
         const current = prev[upper] || { in: 0, out: 0 };
         return {
@@ -160,7 +159,7 @@ export function useDetectionTracker({
           updateVehicleTally(evt.label);
 
           const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
-          const isVehicle = ['car', 'truck', 'bus', 'motorcycle'].includes((evt.label || '').toLowerCase());
+          const isVehicle = ['car', 'truck', 'bus'].includes((evt.label || '').toLowerCase());
           const cachedPlate = trackPlatesRef.current.get(evt.id);
 
           if (cachedPlate) {
@@ -256,7 +255,7 @@ export function useDetectionTracker({
           updateVehicleTally(evt.label, 'IN');
 
           const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
-          const isVehicle = ['car', 'truck', 'bus', 'motorcycle'].includes((evt.label || '').toLowerCase());
+          const isVehicle = ['car', 'truck', 'bus'].includes((evt.label || '').toLowerCase());
           const cachedPlate = trackPlatesRef.current.get(evt.id);
 
           if (cachedPlate) {
@@ -351,7 +350,7 @@ export function useDetectionTracker({
           updateVehicleTally(evt.label, 'OUT');
 
           const activeSource = isRemoteActive && activeImg ? activeImg : videoRef.current;
-          const isVehicle = ['car', 'truck', 'bus', 'motorcycle'].includes((evt.label || '').toLowerCase());
+          const isVehicle = ['car', 'truck', 'bus'].includes((evt.label || '').toLowerCase());
           const cachedPlate = trackPlatesRef.current.get(evt.id);
 
           if (cachedPlate) {
@@ -493,9 +492,7 @@ export function useDetectionTracker({
         car: 0,
         bus: 0,
         truck: 0,
-        motorcycle: 0,
         person: 0,
-        bicycle: 0,
       };
 
       objects.forEach((obj) => {

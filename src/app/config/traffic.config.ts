@@ -6,7 +6,7 @@ export const TRAFFIC_CONFIG = {
   AI: {
     CONFIDENCE_THRESHOLD: 0.25, // High sensitivity threshold for CCTV feeds
     DETECTION_INTERVAL_MS: 200, // 5 FPS frame sampling target per camera
-    ALLOWED_CLASSES: ['car', 'truck', 'bus', 'motorcycle', 'bicycle', 'person'],
+    ALLOWED_CLASSES: ['car', 'truck', 'bus', 'person'],
   },
 
   // Configurable Traffic Density Thresholds

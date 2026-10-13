@@ -4,7 +4,7 @@ import type {
   LineCrossingEvent,
 } from '../types/detection.types';
 
-export const COUNTABLE_CLASSES: string[] = ['car', 'bus', 'motorcycle', 'person', 'truck', 'bicycle'];
+export const COUNTABLE_CLASSES: string[] = ['car', 'bus', 'person', 'truck'];
 
 export class CentroidTracker {
   private nextObjectId: number = 1;

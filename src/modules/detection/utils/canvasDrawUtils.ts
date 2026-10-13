@@ -4,9 +4,7 @@ const CLASS_COLORS: Record<string, string> = {
   car: '#10b981',       // emerald green
   bus: '#f59e0b',       // amber yellow
   truck: '#ef4444',     // red
-  motorcycle: '#8b5cf6',// purple
   person: '#06b6d4',    // cyan
-  bicycle: '#3b82f6',   // blue
 };
 
 export function drawVirtualLine(

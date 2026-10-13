@@ -26,14 +26,13 @@ export function useTrafficAnalytics({
     totalIn: 0,
     totalOut: 0,
     totalDetections: 0,
-    summary: { CAR: 0, TRUCK: 0, BUS: 0, MOTORCYCLE: 0 },
+    summary: { CAR: 0, TRUCK: 0, BUS: 0 },
   });
 
   const [dbGlobalVehicleInOut, setDbGlobalVehicleInOut] = useState<Record<string, VehicleInOutMetrics>>({
     CAR: { in: 0, out: 0 },
     TRUCK: { in: 0, out: 0 },
     BUS: { in: 0, out: 0 },
-    MOTORCYCLE: { in: 0, out: 0 },
     PERSON: { in: 0, out: 0 },
   });
 
@@ -120,7 +119,7 @@ export function useTrafficAnalytics({
 
   // Real-time merged vehicle IN / OUT combining MySQL counts with instant live tallies
   const mergedVehicleInOut: MergedVehicleInOut = useMemo(() => {
-    const classes = ['CAR', 'TRUCK', 'BUS', 'MOTORCYCLE', 'PERSON'] as const;
+    const classes = ['CAR', 'TRUCK', 'BUS', 'PERSON'] as const;
     const result: MergedVehicleInOut = {};
 
     classes.forEach((cls) => {

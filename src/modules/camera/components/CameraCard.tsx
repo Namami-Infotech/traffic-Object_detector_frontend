@@ -17,7 +17,6 @@ const CAMERA_VEHICLES = [
   { key: 'CAR', label: 'Cars', emoji: '🚗', bg: '#f0fdf4', border: '#bbf7d0', textColor: '#166534' },
   { key: 'BUS', label: 'Buses', emoji: '🚌', bg: '#fffbeb', border: '#fef08a', textColor: '#854d0e' },
   { key: 'TRUCK', label: 'Trucks', emoji: '🚚', bg: '#fef2f2', border: '#fecaca', textColor: '#991b1b' },
-  { key: 'MOTORCYCLE', label: 'Motorcycles', emoji: '🏍️', bg: '#f5f3ff', border: '#e9d5ff', textColor: '#5b21b6' },
   { key: 'PERSON', label: 'Pedestrians', emoji: '🚶', bg: '#ecfeff', border: '#a5f3fc', textColor: '#155e75' },
 ] as const;
 
@@ -64,7 +63,6 @@ export const CameraCard: React.FC<CameraCardProps> = ({
     CAR: { in: 0, out: 0 },
     TRUCK: { in: 0, out: 0 },
     BUS: { in: 0, out: 0 },
-    MOTORCYCLE: { in: 0, out: 0 },
     PERSON: { in: 0, out: 0 },
   });
 
@@ -130,7 +128,6 @@ export const CameraCard: React.FC<CameraCardProps> = ({
               CAR: res.data.vehicleInOut.CAR || { in: 0, out: 0 },
               TRUCK: res.data.vehicleInOut.TRUCK || { in: 0, out: 0 },
               BUS: res.data.vehicleInOut.BUS || { in: 0, out: 0 },
-              MOTORCYCLE: res.data.vehicleInOut.MOTORCYCLE || { in: 0, out: 0 },
               PERSON: res.data.vehicleInOut.PERSON || { in: 0, out: 0 },
             });
           }

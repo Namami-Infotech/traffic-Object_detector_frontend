@@ -396,7 +396,7 @@ class PlateRecognitionService {
           const model = await aiModelService.getModel();
           const predictions = await model.detect(baseCanvas);
           const vehicle = predictions.find((p) =>
-            ['car', 'truck', 'bus', 'motorcycle'].includes(p.class.toLowerCase())
+            ['car', 'truck', 'bus'].includes(p.class.toLowerCase())
           );
           if (vehicle && vehicle.bbox && vehicle.bbox[2] > 60 && vehicle.bbox[3] > 40) {
             vehicleBbox = vehicle.bbox as [number, number, number, number];

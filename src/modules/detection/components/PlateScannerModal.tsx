@@ -483,7 +483,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
               Vehicle Type (गाड़ी का प्रकार):
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
-              {['CAR', 'BUS', 'TRUCK', 'MOTORCYCLE'].map((type) => (
+              {['CAR', 'BUS', 'TRUCK'].map((type) => (
                 <button
                   key={type}
                   type="button"
@@ -860,7 +860,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                     Vehicle Type (वाहन प्रकार):
                   </div>
                   <div style={{ display: 'flex', gap: '6px' }}>
-                    {['CAR', 'TRUCK', 'BUS', 'MOTORCYCLE'].map((v) => (
+                    {['CAR', 'TRUCK', 'BUS'].map((v) => (
                       <button
                         key={v}
                         type="button"
@@ -972,7 +972,7 @@ export const PlateScannerModal: React.FC<PlateScannerModalProps> = ({
                   </button>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  {['CAR', 'TRUCK', 'BUS', 'MOTORCYCLE'].map((v) => (
+                  {['CAR', 'TRUCK', 'BUS'].map((v) => (
                     <button
                       key={v}
                       type="button"

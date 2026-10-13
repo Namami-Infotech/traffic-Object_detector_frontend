@@ -36,7 +36,6 @@ export function App() {
     CAR: { in: 0, out: 0 },
     TRUCK: { in: 0, out: 0 },
     BUS: { in: 0, out: 0 },
-    MOTORCYCLE: { in: 0, out: 0 },
     PERSON: { in: 0, out: 0 },
   });
   const [liveLogs, setLiveLogs] = useState<DetectionLogEntry[]>([]);
