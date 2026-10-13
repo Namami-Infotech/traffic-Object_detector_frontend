@@ -8,6 +8,8 @@ export interface DetectionLogInput {
   event: 'IN' | 'OUT' | 'STABLE' | 'DETECTION';
   plateNumber?: string;
   plateConfidence?: number;
+  imageUrl?: string | null;
+  cropDataUrl?: string | null;
   confidence?: number;
   count?: number;
   inCount?: number;

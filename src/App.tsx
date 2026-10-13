@@ -126,6 +126,7 @@ export function App() {
                 ...entry,
                 plateNumber: match.plateNumber,
                 plateConfidence: match.plateConfidence ?? entry.plateConfidence,
+                imageUrl: match.imageUrl || (entry as any).imageUrl,
               };
             }
             return entry;
@@ -149,6 +150,7 @@ export function App() {
             confidence: (evt as any).score || 0.94,
             plateNumber: (evt as any).plateNumber,
             plateConfidence: (evt as any).plateConfidence,
+            imageUrl: (evt as any).imageUrl,
             count: 1,
             detectedAt: new Date(evt.timestamp).toISOString(),
           });

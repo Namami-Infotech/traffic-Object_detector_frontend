@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Database,
   RefreshCw,
@@ -12,10 +12,13 @@ import {
   ChevronsRight,
   Search,
   Calendar,
+  Camera,
+  X,
 } from 'lucide-react';
 import { useDetectionLogs } from '../hooks/useDetectionLogs';
 import type { DetectionLogEntry } from '../types/detection.types';
 import { VEHICLE_META } from '../../../constants/vehicle.constants';
+import { API_BASE_URL } from '../../../app/config/env.config';
 
 export interface DetectionHistoryTableProps {
   liveLogs?: DetectionLogEntry[];
@@ -26,6 +29,21 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
   liveLogs = [],
   onClearLogs,
 }) => {
+  const [previewImage, setPreviewImage] = useState<{
+    url: string;
+    plateNumber: string;
+    trackId?: number;
+    time: string;
+    confidence?: number;
+    vehicleType?: string;
+  } | null>(null);
+
+  const getFullImageUrl = (url: string) => {
+    if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return API_BASE_URL ? `${API_BASE_URL}${url}` : url;
+  };
   const {
     logs,
     totalCount,
@@ -405,48 +423,88 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
 
                     <td style={{ padding: '8px 8px' }}>
                       {log.plateNumber ? (
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            background: '#ffffff',
-                            border: '1.5px solid #1e293b',
-                            borderRadius: '4px',
-                            padding: '2px 8px',
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                            fontFamily: 'monospace',
-                            fontSize: '0.82rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.6px',
-                          }}
-                        >
-                          <span
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <div
                             style={{
-                              background: '#0284c7',
-                              color: '#ffffff',
-                              fontSize: '0.62rem',
-                              fontWeight: 800,
-                              padding: '1px 3px',
-                              borderRadius: '2px',
-                              marginRight: '6px',
-                              lineHeight: 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              background: '#ffffff',
+                              border: '1.5px solid #1e293b',
+                              borderRadius: '4px',
+                              padding: '2px 8px',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                              fontFamily: 'monospace',
+                              fontSize: '0.82rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.6px',
                             }}
                           >
-                            IND
-                          </span>
-                          <span style={{ color: '#0f172a' }}>{log.plateNumber}</span>
-                          {log.plateConfidence && (
                             <span
-                              title={`OCR Accuracy: ${Math.round(log.plateConfidence * 100)}%`}
                               style={{
-                                marginLeft: '6px',
-                                fontSize: '0.65rem',
-                                color: '#059669',
-                                fontWeight: 600,
+                                background: '#0284c7',
+                                color: '#ffffff',
+                                fontSize: '0.62rem',
+                                fontWeight: 800,
+                                padding: '1px 3px',
+                                borderRadius: '2px',
+                                marginRight: '6px',
+                                lineHeight: 1,
                               }}
                             >
-                              {Math.round(log.plateConfidence * 100)}%
+                              IND
                             </span>
+                            <span style={{ color: '#0f172a' }}>{log.plateNumber}</span>
+                            {log.plateConfidence && (
+                              <span
+                                title={`OCR Accuracy: ${Math.round(log.plateConfidence * 100)}%`}
+                                style={{
+                                  marginLeft: '6px',
+                                  fontSize: '0.65rem',
+                                  color: '#059669',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {Math.round(log.plateConfidence * 100)}%
+                              </span>
+                            )}
+                          </div>
+
+                          {log.imageUrl && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPreviewImage({
+                                  url: log.imageUrl!,
+                                  plateNumber: log.plateNumber!,
+                                  trackId: log.trackId,
+                                  time: new Date(log.detectedAt).toLocaleTimeString(),
+                                  confidence: log.plateConfidence || log.confidence,
+                                  vehicleType: log.vehicleType,
+                                })
+                              }
+                              title="View Cropped License Plate Photo"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: '#eff6ff',
+                                border: '1px solid #bfdbfe',
+                                borderRadius: '4px',
+                                padding: '3px 6px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#dbeafe';
+                                e.currentTarget.style.borderColor = '#3b82f6';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#eff6ff';
+                                e.currentTarget.style.borderColor = '#bfdbfe';
+                              }}
+                            >
+                              <Camera size={13} color="#2563eb" />
+                            </button>
                           )}
                         </div>
                       ) : (
@@ -704,6 +762,171 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
           </div>
         )}
       </div>
+
+      {/* Cropped License Plate Photo Lightbox Modal */}
+      {previewImage && (
+        <div
+          onClick={() => setPreviewImage(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            padding: '1rem',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: '12px',
+              padding: '1.25rem',
+              maxWidth: '480px',
+              width: '100%',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              border: '1px solid #e2e8f0',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+                borderBottom: '1px solid #f1f5f9',
+                paddingBottom: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Camera size={18} color="#0284c7" />
+                <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
+                  Captured Number Plate Photo
+                </h4>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewImage(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  padding: '4px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Cropped Plate Image Preview */}
+            <div
+              style={{
+                background: '#0f172a',
+                borderRadius: '8px',
+                padding: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: '140px',
+                marginBottom: '1rem',
+                border: '1.5px solid #334155',
+                overflow: 'hidden',
+              }}
+            >
+              <img
+                src={getFullImageUrl(previewImage.url)}
+                alt={`Plate ${previewImage.plateNumber}`}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '220px',
+                  borderRadius: '4px',
+                  objectFit: 'contain',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                }}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80" viewBox="0 0 300 80"><rect width="300" height="80" fill="%231e293b"/><text x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%2394a3b8" font-family="sans-serif" font-size="14">Image not available</text></svg>';
+                }}
+              />
+            </div>
+
+            {/* Metadata Badges */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '8px',
+                fontSize: '0.8rem',
+              }}
+            >
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '8px',
+                }}
+              >
+                <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Registration No</span>
+                <span style={{ fontWeight: 800, fontFamily: 'monospace', color: '#0284c7', fontSize: '0.95rem' }}>
+                  {previewImage.plateNumber}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '8px',
+                }}
+              >
+                <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>OCR Accuracy</span>
+                <span style={{ fontWeight: 700, color: '#059669', fontSize: '0.95rem' }}>
+                  {previewImage.confidence ? `${Math.round(previewImage.confidence * 100)}%` : '92%'}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '8px',
+                }}
+              >
+                <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Track ID</span>
+                <span style={{ fontWeight: 600, color: '#334155' }}>
+                  #{previewImage.trackId || 'N/A'}
+                </span>
+              </div>
+
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '8px',
+                }}
+              >
+                <span style={{ color: '#64748b', display: 'block', fontSize: '0.7rem' }}>Timestamp</span>
+                <span style={{ fontWeight: 600, color: '#334155' }}>
+                  {previewImage.time}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -46,7 +46,9 @@ export function useDetectionTracker({
   const outCountRef = useRef<number>(initialOutCount);
   const lastDetectTimeRef = useRef<number>(0);
   const reqAnimRef = useRef<number | null>(null);
-  const trackPlatesRef = useRef<Map<number, { plateNumber: string; formattedPlate: string; confidence: number }>>(new Map());
+  const trackPlatesRef = useRef<
+    Map<number, { plateNumber: string; formattedPlate: string; confidence: number; imageUrl?: string | null }>
+  >(new Map());
   const scanAttemptsRef = useRef<Map<number, number>>(new Map());
   const bestBboxAreaRef = useRef<Map<number, number>>(new Map());
   const lastScanTimeRef = useRef<Map<number, number>>(new Map());
@@ -183,11 +185,13 @@ export function useDetectionTracker({
             if (hasPlate && plateRes.plateNumber) {
               const genuineConf = plateRes.confidence || 0.88;
               const plateStr = plateRes.formattedPlate || plateRes.plateNumber;
+              const cropImg = plateRes.cropDataUrl || plateRoiCanvas.toDataURL('image/jpeg', 0.85);
 
               trackPlatesRef.current.set(trackId, {
                 plateNumber: plateRes.plateNumber,
                 formattedPlate: plateStr,
                 confidence: genuineConf,
+                imageUrl: cropImg,
               });
 
               // Mark vehicle as completed
@@ -197,6 +201,7 @@ export function useDetectionTracker({
                 trackId,
                 plateNumber: plateStr,
                 plateConfidence: genuineConf,
+                imageUrl: cropImg,
                 cameraId: cameraId || 'default-webcam',
               };
 
@@ -210,7 +215,7 @@ export function useDetectionTracker({
                 log: latestObjectsRef.current,
               });
 
-              // Persist confirmed plate to DB
+              // Persist confirmed plate and crop image to DB
               detectionService.logEvent({
                 cameraId: cameraId || 'default-webcam',
                 vehicleType: (vehicleLabel || 'car').toUpperCase(),
@@ -218,6 +223,7 @@ export function useDetectionTracker({
                 event: eventContext,
                 plateNumber: plateStr,
                 plateConfidence: genuineConf,
+                cropDataUrl: cropImg,
                 confidence: genuineConf,
                 count: 1,
                 inCount: inCountRef.current,
@@ -241,6 +247,7 @@ export function useDetectionTracker({
           if (cachedPlate) {
             (evt as any).plateNumber = cachedPlate.formattedPlate || cachedPlate.plateNumber;
             (evt as any).plateConfidence = cachedPlate.confidence;
+            (evt as any).imageUrl = cachedPlate.imageUrl;
           }
 
           detectionService.logEvent({
@@ -250,6 +257,7 @@ export function useDetectionTracker({
             event: 'DETECTION',
             plateNumber: cachedPlate ? cachedPlate.formattedPlate || cachedPlate.plateNumber : undefined,
             plateConfidence: cachedPlate?.confidence,
+            imageUrl: cachedPlate?.imageUrl,
             confidence: cachedPlate?.confidence || evt.score || 0.95,
             count: 1,
             inCount: inCountRef.current,

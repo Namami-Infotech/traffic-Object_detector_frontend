@@ -33,6 +33,8 @@ export interface PlateUpdatedEvent {
   trackId: number;
   plateNumber: string;
   plateConfidence?: number;
+  imageUrl?: string | null;
+  cropDataUrl?: string | null;
   cameraId?: string;
 }
 
@@ -62,6 +64,7 @@ export interface DetectionLogEntry {
   vehicleType: string;
   plateNumber?: string | null;
   plateConfidence?: number | null;
+  imageUrl?: string | null;
   trackId?: number;
   event: 'IN' | 'OUT' | 'STABLE' | 'DETECTION';
   confidence: number;
