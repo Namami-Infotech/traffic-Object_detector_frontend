@@ -309,11 +309,27 @@ class PlateRecognitionService {
 
       // 1. PRIMARY ENGINE: High-Accuracy Deep Learning (EasyOCR Backend Bridge)
       try {
-        const base64Data = baseCanvas.toDataURL('image/jpeg', 0.88);
+        let exportCanvas = baseCanvas;
+        const maxDim = Math.max(W, H);
+        if (maxDim > 1280) {
+          const scale = 1280 / maxDim;
+          const scaledCanvas = document.createElement('canvas');
+          scaledCanvas.width = Math.round(W * scale);
+          scaledCanvas.height = Math.round(H * scale);
+          const sCtx = scaledCanvas.getContext('2d');
+          if (sCtx) {
+            sCtx.imageSmoothingEnabled = true;
+            sCtx.imageSmoothingQuality = 'high';
+            sCtx.drawImage(baseCanvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+            exportCanvas = scaledCanvas;
+          }
+        }
+
+        const base64Data = exportCanvas.toDataURL('image/jpeg', 0.85);
         const backendRes: any = await detectionApi.recognizePlate(base64Data, isDirectCrop);
 
         const candidate = backendRes?.data?.plateNumber || backendRes?.data?.rawText;
-        if (candidate) {
+        if (candidate && backendRes?.success !== false) {
           const validated = sanitizeAndValidatePlate(candidate);
           if (validated.isValid || backendRes?.data?.isValid) {
             const finalPlate = validated.cleanPlate || backendRes?.data?.plateNumber || candidate.trim().toUpperCase();

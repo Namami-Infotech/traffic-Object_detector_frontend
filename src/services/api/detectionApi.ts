@@ -60,9 +60,9 @@ export const detectionApi = {
     return apiClient.post('/api/v1/vehicles/recognize-plate', { image, isDirectCrop });
   },
 
-  // POST /vehicles/detect
+  // POST /api/v1/vehicles/detect
   detectVehicles(image: string): Promise<ApiResponse<any>> {
-    return apiClient.post('/vehicles/detect', { image });
+    return apiClient.post('/api/v1/vehicles/detect', { image });
   },
 };
 

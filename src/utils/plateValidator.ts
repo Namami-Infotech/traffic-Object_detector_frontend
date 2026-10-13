@@ -200,21 +200,34 @@ export function sanitizeAndValidatePlate(rawText: string): PlateValidationResult
         }
       }
 
-      // --- 6. Relaxed / Partial Matching for Blurry Moving Vehicles ---
-      // A) Partial Indian Plate with State + RTO + at least 1-3 following characters (Length 5 to 9)
-      if (combined.length >= 5 && combined.length <= 10) {
+      // --- 6. Constrained Partial Matching for Moving Vehicles (Must follow Indian structure & end in digits) ---
+      if (combined.length >= 6 && combined.length <= 11) {
         let stateCandidate = combined.slice(0, 2);
         if (STATE_FIXES[stateCandidate]) stateCandidate = STATE_FIXES[stateCandidate];
 
         if (INDIAN_STATE_CODES.has(stateCandidate)) {
           const rest = combined.slice(2);
-          // Check if rest has 1-2 RTO digits and then some series/number
-          const partialMatch = rest.match(/^([0-9IOS]{1,2})([A-Z0-9]{1,6})$/);
+          // Indian plates MUST end in 2-4 digits (cannot end with words/letters like TFILE)
+          const partialMatch = rest.match(/^([0-9IOS]{1,2})([A-Z]{0,3})([0-9ODQILZSBGA]{2,4})$/);
           if (partialMatch) {
             const rtoClean = partialMatch[1].replace(/O/g, '0').replace(/I/g, '1').replace(/S/g, '5').padStart(2, '0');
-            const remainder = partialMatch[2];
-            const clean = `${stateCandidate}${rtoClean}${remainder}`;
-            const formatted = `${stateCandidate} ${rtoClean} ${remainder}`;
+            const seriesClean = partialMatch[2]
+              .replace(/0/g, 'O')
+              .replace(/1/g, 'I')
+              .replace(/6/g, 'G')
+              .replace(/8/g, 'B')
+              .replace(/5/g, 'S');
+            const numClean = partialMatch[3]
+              .replace(/[ODQ]/g, '0')
+              .replace(/[IL]/g, '1')
+              .replace(/Z/g, '2')
+              .replace(/S/g, '5')
+              .replace(/B/g, '8')
+              .replace(/G/g, '6')
+              .replace(/A/g, '4');
+
+            const clean = `${stateCandidate}${rtoClean}${seriesClean}${numClean}`;
+            const formatted = `${stateCandidate} ${rtoClean} ${seriesClean ? seriesClean + ' ' : ''}${numClean}`.trim();
 
             if (!bestPartialCandidate || clean.length > bestPartialCandidate.cleanPlate.length) {
               bestPartialCandidate = {
@@ -222,29 +235,10 @@ export function sanitizeAndValidatePlate(rawText: string): PlateValidationResult
                 cleanPlate: clean,
                 formattedPlate: formatted,
                 stateCode: stateCandidate,
-                confidenceAdjustment: 0.82,
+                confidenceAdjustment: 0.85,
                 isPartial: true,
               };
             }
-          }
-        }
-      }
-
-      // B) Generalized Alphanumeric Plate Heuristic (e.g. 5 to 9 chars with both letters & digits)
-      if (combined.length >= 5 && combined.length <= 10) {
-        const hasLetters = /[A-Z]/.test(combined);
-        const hasDigits = /[0-9]/.test(combined);
-        const notNoiseWord = !/^(STOP|SLOW|POLICE|CAR|BUS|TRUCK|INDIA|IND|SPEED|SPEEDLIMIT)$/.test(combined);
-
-        if (hasLetters && hasDigits && notNoiseWord) {
-          if (!bestPartialCandidate || combined.length > bestPartialCandidate.cleanPlate.length) {
-            bestPartialCandidate = {
-              isValid: true,
-              cleanPlate: combined,
-              formattedPlate: combined,
-              confidenceAdjustment: 0.75,
-              isPartial: true,
-            };
           }
         }
       }
