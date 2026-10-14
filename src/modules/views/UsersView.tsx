@@ -16,10 +16,11 @@ export const UsersView: React.FC<UsersViewProps> = ({
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [newUserData, setNewUserData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
     phone: '',
+    address: '',
+    role: 'User',
     password: '',
   });
 
@@ -43,15 +44,19 @@ export const UsersView: React.FC<UsersViewProps> = ({
 
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUserData.email || !newUserData.firstName) return;
+    if (!newUserData.email || !newUserData.name) return;
     try {
       const res = await usersApi.create({
-        ...newUserData,
-        role: 'USER',
+        name: newUserData.name.trim(),
+        email: newUserData.email.trim(),
+        phone: newUserData.phone.trim() || undefined,
+        address: newUserData.address.trim() || undefined,
+        role: newUserData.role || 'User',
+        password: newUserData.password || '123456',
       });
       if (res.success) {
         setIsAddUserOpen(false);
-        setNewUserData({ firstName: '', lastName: '', email: '', phone: '', password: '' });
+        setNewUserData({ name: '', email: '', phone: '', address: '', role: 'User', password: '' });
         fetchUsers();
       }
     } catch (err: any) {
@@ -71,11 +76,13 @@ export const UsersView: React.FC<UsersViewProps> = ({
 
   const filteredUsers = userList.filter((u) => {
     const q = userSearch.toLowerCase();
+    const fullName = (u.name || `${u.firstName || ''} ${u.lastName || ''}`).toLowerCase();
     return (
-      u.firstName?.toLowerCase().includes(q) ||
-      u.lastName?.toLowerCase().includes(q) ||
+      fullName.includes(q) ||
       u.email?.toLowerCase().includes(q) ||
-      u.phone?.toLowerCase().includes(q)
+      u.phone?.toLowerCase().includes(q) ||
+      u.address?.toLowerCase().includes(q) ||
+      u.role?.toLowerCase().includes(q)
     );
   });
 
@@ -199,12 +206,13 @@ export const UsersView: React.FC<UsersViewProps> = ({
 
         {/* Table Content */}
         <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-          <table style={{ width: '100%', minWidth: '700px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+          <table style={{ width: '100%', minWidth: '760px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
                 <th style={{ padding: '8px 8px', fontWeight: 600 }}>Name</th>
                 <th style={{ padding: '8px 8px', fontWeight: 600 }}>Email</th>
                 <th style={{ padding: '8px 8px', fontWeight: 600 }}>Phone</th>
+                <th style={{ padding: '8px 8px', fontWeight: 600 }}>Address</th>
                 <th style={{ padding: '8px 8px', fontWeight: 600 }}>Role</th>
                 <th style={{ padding: '8px 8px', fontWeight: 600 }}>Status</th>
                 {canDelete && <th style={{ padding: '8px 8px', fontWeight: 600, textAlign: 'right' }}>Actions</th>}
@@ -213,7 +221,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
             <tbody>
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={canDelete ? 7 : 6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                     {isUserLoading ? 'Loading users...' : 'No users found with USER role.'}
                   </td>
                 </tr>
@@ -227,10 +235,13 @@ export const UsersView: React.FC<UsersViewProps> = ({
                     }}
                   >
                     <td style={{ padding: '8px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                      {u.firstName} {u.lastName}
+                      {u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || '—'}
                     </td>
                     <td style={{ padding: '8px 8px', color: '#2563eb' }}>{u.email}</td>
                     <td style={{ padding: '8px 8px', color: 'var(--text-secondary)' }}>{u.phone || '—'}</td>
+                    <td style={{ padding: '8px 8px', color: 'var(--text-secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={u.address || ''}>
+                      {u.address || '—'}
+                    </td>
                     <td style={{ padding: '8px 8px' }}>
                       <span
                         style={{
@@ -243,7 +254,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                           fontWeight: 600,
                         }}
                       >
-                        USER
+                        {u.role || 'User'}
                       </span>
                     </td>
                     <td style={{ padding: '8px 8px' }}>
@@ -312,7 +323,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
             className="glass-panel"
             style={{
               width: '100%',
-              maxWidth: '440px',
+              maxWidth: '460px',
               background: '#ffffff',
               borderRadius: '12px',
               padding: '1.5rem',
@@ -322,7 +333,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Add New User (Role: USER)
+                Add New User (Role: User)
               </h3>
               <button type="button" onClick={() => setIsAddUserOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={18} />
@@ -330,46 +341,86 @@ export const UsersView: React.FC<UsersViewProps> = ({
             </div>
 
             <form onSubmit={handleAddUser} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Full Name *
+                </label>
                 <input
                   type="text"
-                  placeholder="First Name"
-                  value={newUserData.firstName}
-                  onChange={(e) => setNewUserData({ ...newUserData, firstName: e.target.value })}
+                  placeholder="e.g. John Doe"
+                  value={newUserData.name}
+                  onChange={(e) => setNewUserData({ ...newUserData, name: e.target.value })}
                   required
-                  style={{ background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
-                />
-                <input
-                  type="text"
-                  placeholder="Last Name"
-                  value={newUserData.lastName}
-                  onChange={(e) => setNewUserData({ ...newUserData, lastName: e.target.value })}
-                  required
-                  style={{ background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
                 />
               </div>
-              <input
-                type="email"
-                placeholder="Email Address"
-                value={newUserData.email}
-                onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
-                required
-                style={{ background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
-              />
-              <input
-                type="tel"
-                placeholder="Phone Number (Optional)"
-                value={newUserData.phone}
-                onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value })}
-                style={{ background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
-              />
-              <input
-                type="password"
-                placeholder="Password (default: 123456)"
-                value={newUserData.password}
-                onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
-                style={{ background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
-              />
+
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Email Address *
+                </label>
+                <input
+                  type="email"
+                  placeholder="e.g. user@example.com"
+                  value={newUserData.email}
+                  onChange={(e) => setNewUserData({ ...newUserData, email: e.target.value })}
+                  required
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +91 9876543210"
+                    value={newUserData.phone}
+                    onChange={(e) => setNewUserData({ ...newUserData, phone: e.target.value })}
+                    style={{ width: '100%', background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                    Role
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="User"
+                    value={newUserData.role}
+                    onChange={(e) => setNewUserData({ ...newUserData, role: e.target.value })}
+                    style={{ width: '100%', background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Address
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 123 Main Street, City"
+                  value={newUserData.address}
+                  onChange={(e) => setNewUserData({ ...newUserData, address: e.target.value })}
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
+                  Password (Optional)
+                </label>
+                <input
+                  type="password"
+                  placeholder="Password (default: 123456)"
+                  value={newUserData.password}
+                  onChange={(e) => setNewUserData({ ...newUserData, password: e.target.value })}
+                  style={{ width: '100%', background: '#ffffff', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '9px 12px', borderRadius: '6px', fontSize: '0.85rem' }}
+                />
+              </div>
 
               <button
                 type="submit"

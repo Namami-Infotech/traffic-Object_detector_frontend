@@ -2,10 +2,12 @@ import { apiClient } from './apiClient';
 import type { ApiResponse } from './apiClient';
 
 export interface UserInput {
-  firstName: string;
+  name?: string;
+  firstName?: string;
   lastName?: string;
   email: string;
   phone?: string;
+  address?: string;
   password?: string;
   role?: string;
   [key: string]: any;

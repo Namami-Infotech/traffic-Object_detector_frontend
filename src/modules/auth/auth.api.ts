@@ -14,6 +14,21 @@ export const authApi = {
   },
 
   /**
+   * Register a new user
+   */
+  async register(data: {
+    name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    role?: string;
+    password?: string;
+  }): Promise<{ success: boolean; data?: any; message?: string }> {
+    const res = await apiClient.post<any>('/api/v1/auth/register', data);
+    return res;
+  },
+
+  /**
    * Fetch current user profile with roleDetails and moduleAccess
    */
   async getProfile(): Promise<{ success: boolean; data?: AuthUser; message?: string }> {
