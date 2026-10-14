@@ -15,6 +15,7 @@ const SYSTEM_MODULES_CONFIG: ModulePermissionFormItem[] = [
   { id: 'cctv', name: 'CCTV Surveillance', desc: 'Live multi-camera grid & RTSP video streaming', read: true, write: true, delete: false },
   { id: 'detection', name: 'Traffic Detection & ANPR', desc: 'Vehicle classification, IN/OUT direction & plate scanning', read: true, write: true, delete: false },
   { id: 'parking', name: 'Smart Parking Management', desc: 'Parking areas, slot matrix, hourly rates & occupancy', read: true, write: true, delete: false },
+  { id: 'booking', name: 'Parking & Vehicle Bookings', desc: 'Vehicle reservations, driver details, start/end dates & schedule', read: true, write: true, delete: false },
   { id: 'users', name: 'User Management', desc: 'Public citizens & regular registered user accounts', read: true, write: true, delete: false },
   { id: 'staff', name: 'Staff Management', desc: 'Police officers, admins & parking operator staff', read: true, write: true, delete: false },
   { id: 'roles', name: 'Role & Module Access (RBAC)', desc: 'Role definitions, granular module & action permissions', read: true, write: false, delete: false },

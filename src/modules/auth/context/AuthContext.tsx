@@ -21,11 +21,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY = 'traffic_auth_token';
 const USER_KEY = 'traffic_auth_user';
 
-const ACTIVE_SYSTEM_MODULES = new Set(['cctv', 'detection', 'users', 'parking', 'staff', 'roles']);
+const ACTIVE_SYSTEM_MODULES = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'staff', 'roles']);
 
-const sanitizeModules = (modules: ModulePermission[]): ModulePermission[] => {
-  if (!Array.isArray(modules)) return [];
-  return modules.filter((m) => m && m.moduleId && ACTIVE_SYSTEM_MODULES.has(m.moduleId));
+const sanitizeModules = (modules: ModulePermission[], role?: string | null): ModulePermission[] => {
+  const filtered = Array.isArray(modules)
+    ? modules.filter((m) => m && m.moduleId && ACTIVE_SYSTEM_MODULES.has(m.moduleId))
+    : [];
+
+  if (role === 'ADMIN') {
+    const existingIds = new Set(filtered.map((m) => m.moduleId));
+    for (const modId of ACTIVE_SYSTEM_MODULES) {
+      if (!existingIds.has(modId)) {
+        filtered.push({
+          moduleId: modId,
+          moduleName:
+            modId === 'booking'
+              ? 'Vehicle Bookings'
+              : modId === 'parking'
+              ? 'Smart Parking'
+              : modId.toUpperCase(),
+          actions: ['read', 'write', 'delete'],
+        });
+      }
+    }
+  }
+
+  return filtered;
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -41,7 +62,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const saved = localStorage.getItem(USER_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
-      return sanitizeModules(parsed?.roleDetails?.moduleAccess || []);
+      return sanitizeModules(parsed?.roleDetails?.moduleAccess || [], parsed?.role);
     } catch {
       return [];
     }
@@ -53,7 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await authApi.getUserModuleAccess(userId);
       if (res.success && res.data) {
-        const perms: ModulePermission[] = sanitizeModules(res.data.modules || []);
+        const currentRole = res.data.role || user?.role;
+        const perms: ModulePermission[] = sanitizeModules(res.data.modules || [], currentRole);
         setModuleAccess(perms);
         setUser((prev) => {
           if (!prev) return prev;
@@ -77,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (err: any) {
       console.warn('[AuthContext] Failed to fetch user permissions from API:', err.message);
     }
-  }, []);
+  }, [user?.role]);
 
   // Sync / refresh profile & permissions on mount if token exists
   useEffect(() => {
@@ -85,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (token) {
       authApi.getProfile().then(async (res) => {
         if (res.success && res.data) {
-          const sanitized = sanitizeModules(res.data.roleDetails?.moduleAccess || []);
+          const sanitized = sanitizeModules(res.data.roleDetails?.moduleAccess || [], res.data.role);
           const cleanUser: AuthUser = {
             ...res.data,
             roleDetails: {
@@ -119,11 +141,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem(TOKEN_KEY, accessToken);
 
         // 2. Immediately call Get Permission API for this user
-        let finalModules: ModulePermission[] = sanitizeModules(userData.roleDetails?.moduleAccess || []);
+        let finalModules: ModulePermission[] = sanitizeModules(userData.roleDetails?.moduleAccess || [], userData.role);
         try {
           const permRes = await authApi.getUserModuleAccess(userData.id);
           if (permRes.success && permRes.data?.modules) {
-            finalModules = sanitizeModules(permRes.data.modules);
+            finalModules = sanitizeModules(permRes.data.modules, permRes.data.role || userData.role);
             userData.role = permRes.data.role || userData.role;
             userData.roleDetails = {
               ...(userData.roleDetails || {
@@ -179,6 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasModuleAccess = useCallback(
     (moduleId: string) => {
       if (!user) return false;
+      if (user.role === 'ADMIN') return true;
       return moduleAccess.some(
         (m) => m.moduleId.toLowerCase() === moduleId.toLowerCase()
       );
@@ -189,6 +212,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasActionPermission = useCallback(
     (moduleId: string, action: string) => {
       if (!user) return false;
+      if (user.role === 'ADMIN') return true;
       const mod = moduleAccess.find(
         (m) => m.moduleId.toLowerCase() === moduleId.toLowerCase()
       );

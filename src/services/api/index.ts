@@ -6,5 +6,6 @@ export * from './rolesApi';
 export * from './usersApi';
 export * from './staffApi';
 export * from './parkingApi';
+export * from './bookingApi';
 export { authApi } from '../../modules/auth/auth.api';
 

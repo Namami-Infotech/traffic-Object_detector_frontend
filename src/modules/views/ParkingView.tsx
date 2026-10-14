@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Car, Plus, Trash2, Search, RefreshCw, X, MapPin, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { parkingApi } from '../../services/api';
+import { BookingTable } from './bookingtable';
 export interface ParkingViewProps {
   canWrite?: boolean;
   canDelete?: boolean;
@@ -22,7 +23,7 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
   canWrite = false,
   canDelete = false,
 }) => {
-  const [parkingTab, setParkingTab] = useState<'TABLE' | 'AREAS' | 'SLOTS'>('TABLE');
+  const [parkingTab, setParkingTab] = useState<'TABLE' | 'AREAS' | 'SLOTS' | 'BOOKINGS'>('TABLE');
   const [parkingLots, setParkingLots] = useState<any[]>([]);
   const [parkingSearch, setParkingSearch] = useState('');
   const [selectedLotId, setSelectedLotId] = useState<string>('');
@@ -255,9 +256,16 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {/* Tab Pills */}
             <div style={{ display: 'flex', background: '#f8fafc', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              {(['TABLE', 'AREAS', 'SLOTS'] as const).map((tab) => {
+              {(['TABLE', 'AREAS', 'SLOTS', 'BOOKINGS'] as const).map((tab) => {
                 const isActive = parkingTab === tab;
-                const label = tab === 'TABLE' ? 'Lots Table' : tab === 'AREAS' ? 'Cards' : 'Slots Matrix';
+                const label =
+                  tab === 'TABLE'
+                    ? 'Lots Table'
+                    : tab === 'AREAS'
+                    ? 'Cards'
+                    : tab === 'SLOTS'
+                    ? 'Slots Matrix'
+                    : 'Bookings';
                 return (
                   <button
                     key={tab}
@@ -772,6 +780,13 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                 ))
               )}
             </div>
+          </div>
+        )}
+
+        {/* TAB 3: BOOKINGS */}
+        {parkingTab === 'BOOKINGS' && (
+          <div style={{ marginTop: '0.5rem' }}>
+            <BookingTable canWrite={canWrite} canDelete={canDelete} />
           </div>
         )}
       </div>

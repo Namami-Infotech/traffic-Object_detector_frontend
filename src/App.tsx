@@ -11,7 +11,7 @@ import { ModuleViews } from './modules/views/ModuleViews';
 import { socketClient } from './services/socket/socketClient';
 
 export function App() {
-  const { isAuthenticated, moduleAccess } = useAuth();
+  const { isAuthenticated, moduleAccess, role } = useAuth();
   const [activeModule, setActiveModule] = useState<string>('cctv');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [viewMode] = useState<'GRID' | 'SINGLE'>('GRID');
@@ -49,13 +49,16 @@ export function App() {
 
   // Synchronize active module with user's available permissions
   useEffect(() => {
+    if (role === 'ADMIN') {
+      return;
+    }
     if (moduleAccess && moduleAccess.length > 0) {
       const hasCurrent = moduleAccess.some((m) => m.moduleId === activeModule);
       if (!hasCurrent) {
         setActiveModule(moduleAccess[0].moduleId);
       }
     }
-  }, [moduleAccess, activeModule]);
+  }, [moduleAccess, activeModule, role]);
 
   // Modular Traffic Analytics Hook (combines MySQL DB counts + live session metrics)
   const {

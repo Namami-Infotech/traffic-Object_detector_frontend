@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  CalendarCheck,
 } from 'lucide-react';
 import { useAuth } from '../../modules/auth/context/AuthContext';
 
@@ -26,6 +27,7 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
   detection: <Radio size={18} />,
   users: <Users size={18} />,
   parking: <Car size={18} />,
+  booking: <CalendarCheck size={18} />,
   staff: <Shield size={18} />,
   roles: <ShieldCheck size={18} />,
 };
@@ -37,8 +39,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => {
   const { user, role, roleDetails, moduleAccess, logout } = useAuth();
-  const ACTIVE_MODULE_SET = new Set(['cctv', 'detection', 'users', 'parking', 'staff', 'roles']);
-  const permittedModules = (moduleAccess || []).filter((m) => m && m.moduleId && ACTIVE_MODULE_SET.has(m.moduleId));
+  const ACTIVE_MODULE_SET = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'staff', 'roles']);
+  const rawPermitted = (moduleAccess || []).filter((m) => m && m.moduleId && ACTIVE_MODULE_SET.has(m.moduleId));
+  const permittedModules = role === 'ADMIN'
+    ? Array.from(ACTIVE_MODULE_SET).map((id) => {
+        const found = rawPermitted.find((m) => m.moduleId === id);
+        return (
+          found || {
+            moduleId: id,
+            moduleName:
+              id === 'booking'
+                ? 'Vehicle Bookings'
+                : id === 'parking'
+                ? 'Smart Parking'
+                : id.toUpperCase(),
+            actions: ['read', 'write', 'delete'],
+          }
+        );
+      })
+    : rawPermitted;
 
   return (
     <aside

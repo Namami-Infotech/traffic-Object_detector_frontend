@@ -5,6 +5,7 @@ import { DetectionView } from './DetectionView';
 import { UsersView } from './UsersView';
 import { StaffView } from './StaffView';
 import { ParkingView } from './ParkingView';
+import { BookingTable } from './bookingtable';
 import { RolesView } from './RolesView';
 
 export interface ModuleViewsProps {
@@ -116,6 +117,10 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
         cameraVehicleInOutMap={cameraVehicleInOutMap}
       />
     );
+  }
+
+  if (moduleId === 'booking') {
+    return <BookingTable canWrite={canWrite} canDelete={canDelete} />;
   }
 
   if (moduleId === 'roles') {
