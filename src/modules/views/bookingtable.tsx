@@ -23,6 +23,7 @@ import {
 import { bookingApi } from '../../services/api/bookingApi';
 import type { Booking, BookingInput, BookingStats } from '../../services/api/bookingApi';
 import { parkingApi } from '../../services/api/parkingApi';
+import { QRScannerModal } from './QRScannerModal';
 
 export interface BookingTableProps {
   canWrite?: boolean;
@@ -42,6 +43,7 @@ export const BookingTable: React.FC<BookingTableProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [qrModalBooking, setQrModalBooking] = useState<Booking | null>(null);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState<boolean>(false);
 
   // Form State
   const [formData, setFormData] = useState<BookingInput>({
@@ -525,6 +527,31 @@ export const BookingTable: React.FC<BookingTableProps> = ({
             >
               <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
               Refresh
+            </button>
+
+            {/* Scan QR Pass Button */}
+            <button
+              type="button"
+              onClick={() => setIsQrScannerOpen(true)}
+              title="Scan QR Code Pass via Camera or Upload"
+              style={{
+                background: 'linear-gradient(135deg, #059669, #10b981)',
+                border: 'none',
+                color: '#ffffff',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <QrCode size={14} />
+              Scan QR Pass
             </button>
 
             {canWrite && (
@@ -1603,6 +1630,15 @@ export const BookingTable: React.FC<BookingTableProps> = ({
           </div>
         );
       })()}
+
+      {/* QR Scanner Modal (Live Camera & Drag-and-Drop Image) */}
+      <QRScannerModal
+        isOpen={isQrScannerOpen}
+        onClose={() => setIsQrScannerOpen(false)}
+        onBookingUpdated={() => {
+          fetchBookings();
+        }}
+      />
     </div>
   );
 };

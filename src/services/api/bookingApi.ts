@@ -77,6 +77,25 @@ export const bookingApi = {
     return apiClient.post('/api/v1/booking/scan-qr', data);
   },
 
+  // POST /api/v1/booking/scan-qr/image
+  scanQrImage(formData: FormData, action: 'VERIFY' | 'CHECK_IN' | 'CHECK_OUT' = 'VERIFY'): Promise<
+    ApiResponse<{
+      accessGranted: boolean;
+      status: string;
+      message: string;
+      validUntil?: string;
+      remainingTime?: string;
+      booking: Booking | null;
+    }>
+  > {
+    formData.append('action', action);
+    return apiClient.request('/api/v1/booking/scan-qr/image', {
+      method: 'POST',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
   // GET /api/v1/booking
   getAll(params?: {
     search?: string;
