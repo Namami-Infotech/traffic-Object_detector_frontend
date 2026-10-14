@@ -608,13 +608,14 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>Duration</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>Amount</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>Status</th>
+                <th style={{ padding: '10px 8px', fontWeight: 600 }}>Booked By</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={13} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={14} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                     {isLoading ? 'Loading bookings...' : 'No vehicle bookings found. Click "New Booking" to create one.'}
                   </td>
                 </tr>
@@ -786,6 +787,31 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                           <option value="EXPIRED">EXPIRED</option>
                           <option value="CANCELLED">CANCELLED</option>
                         </select>
+                      </td>
+
+                      {/* Booked By */}
+                      <td style={{ padding: '10px 8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <span
+                            style={{
+                              fontSize: '0.74rem',
+                              color: b.bookedBy ? 'var(--text-primary)' : 'var(--text-muted)',
+                              background: b.bookedBy ? '#f1f5f9' : 'transparent',
+                              padding: b.bookedBy ? '2px 7px' : '0',
+                              borderRadius: '4px',
+                              fontWeight: b.bookedBy ? 600 : 400,
+                              border: b.bookedBy ? '1px solid #e2e8f0' : 'none',
+                              maxWidth: '130px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              display: 'inline-block',
+                            }}
+                            title={b.bookedBy || 'System / Direct'}
+                          >
+                            {b.bookedBy || '—'}
+                          </span>
+                        </div>
                       </td>
 
                       {/* Actions */}
@@ -1495,6 +1521,12 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', display: 'block' }}>End Time (Expiry)</span>
                     <strong style={{ color: '#dc2626', fontSize: '0.74rem' }}>{formatDateTime(qrModalBooking.endDate)}</strong>
                   </div>
+                  {qrModalBooking.bookedBy && (
+                    <div style={{ gridColumn: 'span 2', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px' }}>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'block' }}>Booked By (Operator / Staff)</span>
+                      <strong style={{ color: 'var(--text-primary)', fontSize: '0.76rem' }}>{qrModalBooking.bookedBy}</strong>
+                    </div>
+                  )}
                   <div style={{ gridColumn: 'span 2', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '8px', marginTop: '2px' }}>
                     <div>
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Status: </span>

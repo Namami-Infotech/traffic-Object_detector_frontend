@@ -15,6 +15,8 @@ export interface Booking {
   totalAmount?: number | null;
   status: 'CONFIRMED' | 'PENDING' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
   notes?: string | null;
+  bookedBy?: string | null;
+  bookedById?: string | null;
   qrCode?: string | null;
   qrCodeUrl?: string | null;
   isExpired?: boolean;
@@ -35,6 +37,8 @@ export interface BookingInput {
   totalAmount?: number;
   status?: 'CONFIRMED' | 'PENDING' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
   notes?: string;
+  bookedBy?: string;
+  bookedById?: string;
 }
 
 export interface BookingStats {
