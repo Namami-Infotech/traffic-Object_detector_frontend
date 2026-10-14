@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Car, Plus, Trash2, Search, RefreshCw, X, MapPin, Image as ImageIcon, Upload, Eye, Loader2 } from 'lucide-react';
+import { Car, Plus, Trash2, Search, RefreshCw, X, MapPin, Image as ImageIcon, Upload, Loader2 } from 'lucide-react';
 import { parkingApi } from '../../services/api';
 export interface ParkingViewProps {
   canWrite?: boolean;
