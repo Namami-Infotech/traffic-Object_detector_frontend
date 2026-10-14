@@ -8,7 +8,20 @@ export interface ParkingInput {
   pricePerHour?: number;
   priceTwoWheeler?: number;
   description?: string;
+  banners?: string[];
   [key: string]: any;
+}
+
+export interface UploadBannersResponse {
+  urls: string[];
+  url: string;
+  files: Array<{
+    filename: string;
+    originalName: string;
+    mimetype: string;
+    size: number;
+    url: string;
+  }>;
 }
 
 export interface ParkingStats {
@@ -20,6 +33,14 @@ export interface ParkingStats {
 }
 
 export const parkingApi = {
+  // POST /api/v1/parking/upload
+  uploadBanners(formData: FormData): Promise<ApiResponse<UploadBannersResponse>> {
+    return apiClient.post<UploadBannersResponse>('/api/v1/parking/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
   // GET /api/v1/parking/stats
   getStats(): Promise<ApiResponse<ParkingStats>> {
     return apiClient.get<ParkingStats>('/api/v1/parking/stats');
