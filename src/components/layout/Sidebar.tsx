@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Lock,
   CalendarCheck,
+  CircleDollarSign,
 } from 'lucide-react';
 import { useAuth } from '../../modules/auth/context/AuthContext';
 
@@ -28,6 +29,7 @@ const MODULE_ICONS: Record<string, React.ReactNode> = {
   users: <Users size={18} />,
   parking: <Car size={18} />,
   booking: <CalendarCheck size={18} />,
+  toll: <CircleDollarSign size={18} />,
   staff: <Shield size={18} />,
   roles: <ShieldCheck size={18} />,
 };
@@ -39,7 +41,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => {
   const { user, role, roleDetails, moduleAccess, logout } = useAuth();
-  const ACTIVE_MODULE_SET = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'staff', 'roles']);
+  const ACTIVE_MODULE_SET = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'toll', 'staff', 'roles']);
   const rawPermitted = (moduleAccess || []).filter((m) => m && m.moduleId && ACTIVE_MODULE_SET.has(m.moduleId));
   const permittedModules = role === 'ADMIN'
     ? Array.from(ACTIVE_MODULE_SET).map((id) => {
@@ -52,6 +54,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'Vehicle Bookings'
                 : id === 'parking'
                 ? 'Smart Parking'
+                : id === 'toll'
+                ? 'Toll Management'
                 : id.toUpperCase(),
             actions: ['read', 'write', 'delete'],
           }

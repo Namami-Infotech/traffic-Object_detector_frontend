@@ -5,4 +5,6 @@ export * from './StaffView';
 export * from './ParkingView';
 export * from './bookingtable';
 export * from './RolesView';
+export * from './TollView';
 export * from './ModuleViews';
+

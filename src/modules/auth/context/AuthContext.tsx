@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY = 'traffic_auth_token';
 const USER_KEY = 'traffic_auth_user';
 
-const ACTIVE_SYSTEM_MODULES = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'staff', 'roles']);
+const ACTIVE_SYSTEM_MODULES = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'toll', 'staff', 'roles']);
 
 const sanitizeModules = (modules: ModulePermission[], role?: string | null): ModulePermission[] => {
   const filtered = Array.isArray(modules)
@@ -39,6 +39,8 @@ const sanitizeModules = (modules: ModulePermission[], role?: string | null): Mod
               ? 'Vehicle Bookings'
               : modId === 'parking'
               ? 'Smart Parking'
+              : modId === 'toll'
+              ? 'Toll Management'
               : modId.toUpperCase(),
           actions: ['read', 'write', 'delete'],
         });

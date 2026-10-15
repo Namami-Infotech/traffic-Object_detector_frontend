@@ -7,6 +7,7 @@ import { StaffView } from './StaffView';
 import { ParkingView } from './ParkingView';
 import { BookingTable } from './bookingtable';
 import { RolesView } from './RolesView';
+import { TollView } from './TollView';
 
 export interface ModuleViewsProps {
   moduleId: string;
@@ -125,6 +126,10 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
 
   if (moduleId === 'roles') {
     return <RolesView canWrite={canWrite} canDelete={canDelete} />;
+  }
+
+  if (moduleId === 'toll') {
+    return <TollView canWrite={canWrite} canDelete={canDelete} />;
   }
 
   return (
