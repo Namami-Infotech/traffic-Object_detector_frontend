@@ -57,4 +57,18 @@ export const authApi = {
   async getSystemModules(): Promise<{ success: boolean; data?: any[]; message?: string }> {
     return apiClient.get('/api/v1/roles/system-modules');
   },
+
+  /**
+   * Log out user & clear backend auth cookies
+   */
+  async logout(): Promise<{ success: boolean; message?: string }> {
+    return apiClient.post('/api/v1/auth/logout');
+  },
+
+  /**
+   * Refresh token
+   */
+  async refreshToken(): Promise<{ success: boolean; data?: any; message?: string }> {
+    return apiClient.post('/api/v1/auth/refresh-token');
+  },
 };

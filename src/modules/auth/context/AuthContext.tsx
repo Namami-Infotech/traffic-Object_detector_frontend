@@ -18,7 +18,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const TOKEN_KEY = 'traffic_auth_token';
 const USER_KEY = 'traffic_auth_user';
 
 const ACTIVE_SYSTEM_MODULES = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'toll', 'staff', 'roles']);
@@ -103,9 +102,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.role]);
 
-  // Sync / refresh profile & permissions on mount if token exists
+  // Sync / refresh profile & permissions on mount if token exists in cookies
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
+    // Clean up any legacy token keys from localStorage
+    localStorage.removeItem('traffic_auth_token');
+    localStorage.removeItem('traffic_refresh_token');
+
+    const getCookieToken = (): string | null => {
+      if (typeof document !== 'undefined') {
+        const match = document.cookie.match(/(?:^|;\s*)(?:traffic_token|accessToken)=([^;]+)/);
+        if (match) return decodeURIComponent(match[1]);
+      }
+      return null;
+    };
+
+    const token = getCookieToken();
     if (token) {
       authApi.getProfile().then(async (res) => {
         if (res.success && res.data) {
@@ -140,7 +151,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await authApi.login(identifier, password);
       if (res.success && res.data) {
         const { user: userData, accessToken } = res.data;
-        localStorage.setItem(TOKEN_KEY, accessToken);
+        // Token is stored in cookies, not in localStorage
+        if (typeof document !== 'undefined') {
+          document.cookie = `traffic_token=${accessToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
+        }
 
         // 2. Immediately call Get Permission API for this user
         let finalModules: ModulePermission[] = sanitizeModules(userData.roleDetails?.moduleAccess || [], userData.role);
@@ -185,8 +199,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('traffic_auth_token');
+    localStorage.removeItem('traffic_refresh_token');
+    if (typeof document !== 'undefined') {
+      document.cookie = 'traffic_token=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'accessToken=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'refreshToken=; path=/; max-age=0; SameSite=Lax';
+    }
+    authApi.logout().catch(() => {});
     setUser(null);
     setModuleAccess([]);
   }, []);

@@ -16,22 +16,66 @@ export interface RequestOptions extends AxiosRequestConfig {
   params?: Record<string, string | number | boolean | undefined>;
 }
 
+const getCookieToken = (): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)(?:traffic_token|accessToken)=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+};
+
 class ApiClient {
   public instance: AxiosInstance;
 
   constructor(baseUrl: string = API_BASE_URL) {
     this.instance = axios.create({
       baseURL: baseUrl,
+      withCredentials: true,
     });
 
-    // Request interceptor to automatically attach authorization token
+    // Request interceptor to attach cookie-based token
     this.instance.interceptors.request.use((config) => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('traffic_auth_token') : null;
+      const token = getCookieToken();
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
     });
+
+    // Response interceptor for automatic silent token refresh using cookies
+    this.instance.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+        if (
+          error.response?.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry &&
+          !originalRequest.url?.includes('/auth/login') &&
+          !originalRequest.url?.includes('/auth/refresh')
+        ) {
+          originalRequest._retry = true;
+          try {
+            const refreshRes = await axios.post(
+              `${baseUrl}/api/v1/auth/refresh-token`,
+              {},
+              { withCredentials: true }
+            );
+            if (refreshRes.data?.success && refreshRes.data?.data?.accessToken) {
+              const newToken = refreshRes.data.data.accessToken;
+              if (typeof document !== 'undefined') {
+                document.cookie = `traffic_token=${newToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
+              }
+              if (originalRequest.headers) {
+                originalRequest.headers.Authorization = `Bearer ${newToken}`;
+              }
+              return this.instance(originalRequest);
+            }
+          } catch {
+            // refresh token expired or invalid
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   async request<T = any>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
