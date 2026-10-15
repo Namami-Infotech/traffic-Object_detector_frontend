@@ -384,7 +384,7 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Total Space</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Occupied</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Available Free</th>
-                    <th style={{ padding: '8px 8px', fontWeight: 600 }}>Car (₹/hr)</th>
+                    <th style={{ padding: '8px 8px', fontWeight: 600 }}>Car (₹/day)</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Banners</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600 }}>Status</th>
                     <th style={{ padding: '8px 8px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
@@ -460,7 +460,7 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                             </td>
 
                             <td style={{ padding: '8px 8px', fontWeight: 600, color: 'var(--text-primary)' }}>
-                              ₹{Number(lot.pricePerHour || 0)}
+                              ₹{Number(lot.pricePerHour || 0)}/day
                             </td>
                             <td style={{ padding: '8px 8px' }}>
                               {bannersList.length > 0 ? (
@@ -686,8 +686,8 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#f8fafc', padding: '8px', borderRadius: '6px', fontSize: '0.78rem', marginBottom: '10px' }}>
                     <div>Total: <strong>{lot.totalSpace}</strong></div>
                     <div>Free: <strong style={{ color: '#059669' }}>{available}</strong></div>
-                    <div>Car: ₹{lot.pricePerHour}/hr</div>
-                    <div>Bike: ₹{lot.priceTwoWheeler || 20}/hr</div>
+                    <div>Car: ₹{lot.pricePerHour}/day</div>
+                    <div>Bike: ₹{lot.priceTwoWheeler || 20}/day</div>
                   </div>
                   <button
                     type="button"
@@ -906,11 +906,11 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
                   <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                    Price / Hour (Car) ₹:
+                    Price / Day (Car) ₹:
                   </label>
                   <input
                     type="number"
-                    placeholder="50"
+                    placeholder="100"
                     min={0}
                     value={newParkingData.pricePerHour}
                     onChange={(e) => setNewParkingData({ ...newParkingData, pricePerHour: Number(e.target.value) })}
@@ -929,11 +929,11 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
 
                 <div>
                   <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '4px' }}>
-                    Price / Hour (2-Wheeler) ₹:
+                    Price / Day (2-Wheeler) ₹:
                   </label>
                   <input
                     type="number"
-                    placeholder="20"
+                    placeholder="50"
                     min={0}
                     value={newParkingData.priceTwoWheeler}
                     onChange={(e) => setNewParkingData({ ...newParkingData, priceTwoWheeler: Number(e.target.value) })}

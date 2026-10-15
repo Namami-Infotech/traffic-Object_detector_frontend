@@ -150,10 +150,10 @@ export const BookingTable: React.FC<BookingTableProps> = ({
     const e = new Date(endStr);
     if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return 0;
 
-    const diffHours = Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60)));
+    const diffDays = Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)));
     const lot = parkingLots.find((p) => p.id === lotId);
     const rate = lot ? Number(lot.pricePerHour) || 50 : 50;
-    return diffHours * rate;
+    return diffDays * rate;
   };
 
   const handleOpenAddModal = () => {
@@ -1156,7 +1156,7 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                           }}
                         >
                           {lot.name} {avail.isAvailable
-                            ? `(Available: ${avail.available}/${avail.totalSpace} • ₹${lot.pricePerHour}/hr)`
+                            ? `(Available: ${avail.available}/${avail.totalSpace} • ₹${lot.pricePerHour}/day)`
                             : `(Not Available / FULL • 0/${avail.totalSpace})`}
                         </option>
                       );
