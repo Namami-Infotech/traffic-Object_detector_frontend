@@ -24,6 +24,11 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        '/uploads': {
+          target: backendTarget,
+          changeOrigin: true,
+          secure: false,
+        },
         '/socket.io': {
           target: backendTarget,
           ws: true,

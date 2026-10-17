@@ -12,9 +12,11 @@
   "dependencies": {
     "@tensorflow-models/coco-ssd": "^2.2.3",
     "@tensorflow/tfjs": "^4.22.0",
+    "@types/leaflet": "^1.9.22",
     "axios": "^1.20.0",
     "jpeg-js": "^0.4.4",
     "jsqr": "^1.4.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

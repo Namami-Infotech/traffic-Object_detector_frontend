@@ -8,6 +8,7 @@ import { ParkingView } from './ParkingView';
 import { BookingTable } from './bookingtable';
 import { RolesView } from './RolesView';
 import { TollView } from './TollView';
+import { HistoricalPlaceView } from './HistoricalPlaceView';
 
 export interface ModuleViewsProps {
   moduleId: string;
@@ -130,6 +131,10 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
 
   if (moduleId === 'toll') {
     return <TollView canWrite={canWrite} canDelete={canDelete} />;
+  }
+
+  if (moduleId === 'historicalPlaces') {
+    return <HistoricalPlaceView canWrite={canWrite} canDelete={canDelete} />;
   }
 
   return (

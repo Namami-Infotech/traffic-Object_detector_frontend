@@ -8,5 +8,6 @@ export * from './staffApi';
 export * from './parkingApi';
 export * from './bookingApi';
 export * from './tollApi';
+export * from './historicalPlaceApi';
 export { authApi } from '../../modules/auth/auth.api';
 
