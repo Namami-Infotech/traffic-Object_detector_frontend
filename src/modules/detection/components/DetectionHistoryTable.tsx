@@ -13,6 +13,8 @@ import {
   Calendar,
   Camera,
   X,
+  SlidersHorizontal,
+  RotateCcw,
 } from 'lucide-react';
 import { useDetectionLogs } from '../hooks/useDetectionLogs';
 import type { DetectionLogEntry } from '../types/detection.types';
@@ -79,6 +81,24 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
     }
   }, [propSearchTerm, setSearchTerm, setCurrentPage]);
 
+  const hasActiveFilters =
+    Boolean(searchTerm) ||
+    eventFilter !== 'ALL' ||
+    vehicleFilter !== 'ALL' ||
+    dateFilter !== 'TODAY' ||
+    Boolean(customStartDate) ||
+    Boolean(customEndDate);
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setEventFilter('ALL');
+    setVehicleFilter('ALL');
+    setDateFilter('TODAY');
+    setCustomStartDate('');
+    setCustomEndDate('');
+    setCurrentPage(1);
+  };
+
   const handleClear = async () => {
     if (window.confirm('Are you sure you want to clear all database detection logs?')) {
       await clearLogs();
@@ -87,300 +107,436 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
   };
 
   return (
-    <div className="glass-panel" style={{ marginTop: '1rem', padding: '0.8rem', overflow: 'hidden' }}>
-      {/* Unified Table Controls & Filter Toolbar */}
+    <div className="glass-panel" style={{ marginTop: '1rem', padding: '1rem', overflow: 'hidden' }}>
+      {/* Modern Two-Tier Table Controls Header */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: 'column',
           gap: '10px',
-          flexWrap: 'wrap',
           marginBottom: '1rem',
-          background: '#f8fafc',
-          padding: '0.6rem 0.8rem',
-          borderRadius: '8px',
-          border: '1px solid var(--border-color)',
         }}
       >
-        {/* Search Input */}
+        {/* Tier 1: Search, Record Count Badge & Primary Actions */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            background: '#ffffff',
-            border: '1px solid var(--border-color)',
-            borderRadius: '6px',
-            padding: '4px 10px',
-            minWidth: '200px',
-            maxWidth: '280px',
-            flex: '1 1 auto',
+            justifyContent: 'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
           }}
         >
-          <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-          <input
-            type="text"
-            placeholder="Search plate, camera, label..."
-            value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            style={{
-              border: 'none',
-              outline: 'none',
-              background: 'transparent',
-              fontSize: '0.8rem',
-              width: '100%',
-              color: 'var(--text-primary)',
-            }}
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchTerm('');
-                setCurrentPage(1);
-              }}
+          {/* Left: Search Box + Record Count Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: '240px', maxWidth: '420px' }}>
+            <div
               style={{
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                color: 'var(--text-muted)',
                 display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#ffffff',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                width: '100%',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
               }}
             >
-              <X size={14} />
-            </button>
-          )}
-        </div>
+              <Search size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Search plate, camera, label..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontSize: '0.82rem',
+                  width: '100%',
+                  color: 'var(--text-primary)',
+                }}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  title="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
 
-        {/* Date Filter (Default: Today / Current Data) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Calendar size={14} color="var(--accent-blue)" />
-          <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Date:</span>
-          <select
-            value={dateFilter}
-            onChange={(e) => {
-              setDateFilter(e.target.value as any);
-              setCurrentPage(1);
-            }}
-            style={{
-              padding: '4px 8px',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              borderRadius: '6px',
-              border: dateFilter === 'TODAY' ? '1px solid #93c5fd' : '1px solid var(--border-color)',
-              background: dateFilter === 'TODAY' ? '#eff6ff' : '#ffffff',
-              color: dateFilter === 'TODAY' ? '#1d4ed8' : 'var(--text-primary)',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="TODAY">Today (Current)</option>
-            <option value="YESTERDAY">Yesterday</option>
-            <option value="LAST_7_DAYS">Last 7 Days</option>
-            <option value="THIS_MONTH">This Month</option>
-            <option value="ALL">All Time</option>
-            <option value="CUSTOM">Custom Range...</option>
-          </select>
-        </div>
-
-        {/* Custom Date Pickers when CUSTOM is selected */}
-        {dateFilter === 'CUSTOM' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <input
-              type="date"
-              value={customStartDate}
-              onChange={(e) => {
-                setCustomStartDate(e.target.value);
-                setCurrentPage(1);
-              }}
+            <span
               style={{
-                padding: '3px 6px',
-                fontSize: '0.78rem',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)',
-                background: '#ffffff',
-                color: 'var(--text-primary)',
-              }}
-            />
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>to</span>
-            <input
-              type="date"
-              value={customEndDate}
-              onChange={(e) => {
-                setCustomEndDate(e.target.value);
-                setCurrentPage(1);
-              }}
-              style={{
-                padding: '3px 6px',
-                fontSize: '0.78rem',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)',
-                background: '#ffffff',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-        )}
-
-        {/* Event Filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Event:</span>
-          <select
-            value={eventFilter}
-            onChange={(e) => {
-              setEventFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            style={{
-              padding: '4px 8px',
-              fontSize: '0.78rem',
-              borderRadius: '6px',
-              border: '1px solid var(--border-color)',
-              background: '#ffffff',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <option value="ALL">All Events</option>
-            <option value="IN">IN (Entry)</option>
-            <option value="OUT">OUT (Exit)</option>
-            <option value="DETECTION">Detection</option>
-          </select>
-        </div>
-
-        {/* Vehicle Class Filter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Vehicle:</span>
-          <select
-            value={vehicleFilter}
-            onChange={(e) => {
-              setVehicleFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            style={{
-              padding: '4px 8px',
-              fontSize: '0.78rem',
-              borderRadius: '6px',
-              border: '1px solid var(--border-color)',
-              background: '#ffffff',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <option value="ALL">All Vehicles</option>
-            <option value="CAR">Car</option>
-            <option value="TRUCK">Truck</option>
-            <option value="BUS">Bus</option>
-            <option value="PERSON">Pedestrian</option>
-          </select>
-        </div>
-
-        {/* Page Size */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Show:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => {
-              setPageSize(Number(e.target.value));
-              setCurrentPage(1);
-            }}
-            style={{
-              padding: '4px 8px',
-              fontSize: '0.78rem',
-              borderRadius: '6px',
-              border: '1px solid var(--border-color)',
-              background: '#ffffff',
-              color: 'var(--text-primary)',
-            }}
-          >
-            <option value={10}>10 rows</option>
-            <option value={25}>25 rows</option>
-            <option value={50}>50 rows</option>
-          </select>
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'wrap' }}>
-          {onOpenPlateScanner && (
-            <button
-              type="button"
-              onClick={onOpenPlateScanner}
-              style={{
-                background: 'var(--accent-blue)',
-                color: '#ffffff',
-                border: 'none',
-                padding: '5px 12px',
-                borderRadius: '6px',
+                fontSize: '0.74rem',
                 fontWeight: 600,
-                fontSize: '0.78rem',
+                color: 'var(--text-secondary)',
+                background: '#f1f5f9',
+                padding: '5px 9px',
+                borderRadius: '6px',
+                whiteSpace: 'nowrap',
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              {totalCount} logs
+            </span>
+          </div>
+
+          {/* Right: Action Buttons (ANPR Scan, Refresh, Clear) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {onOpenPlateScanner && (
+              <button
+                type="button"
+                onClick={onOpenPlateScanner}
+                style={{
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '7px 14px',
+                  borderRadius: '7px',
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 10px rgba(37, 99, 235, 0.35)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(37, 99, 235, 0.25)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <Camera size={14} />
+                Scan Plate (ANPR)
+              </button>
+            )}
+
+            <button
+              onClick={refresh}
+              disabled={loading}
+              title="Refresh Database Logs"
+              style={{
+                background: '#ffffff',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                padding: '6px 12px',
+                borderRadius: '7px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
                 cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
+                boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f8fafc';
+                e.currentTarget.style.borderColor = '#cbd5e1';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#ffffff';
+                e.currentTarget.style.borderColor = 'var(--border-color)';
               }}
             >
-              Scan Plate (ANPR)
+              <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+              Refresh
             </button>
+
+            <button
+              onClick={handleClear}
+              title="Clear all database logs"
+              style={{
+                background: '#fff1f2',
+                border: '1px solid #fecdd3',
+                color: '#e11d48',
+                padding: '6px 12px',
+                borderRadius: '7px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#ffe4e6';
+                e.currentTarget.style.borderColor = '#fda4af';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = '#fff1f2';
+                e.currentTarget.style.borderColor = '#fecdd3';
+              }}
+            >
+              <Trash2 size={13} />
+              Clear DB Logs
+            </button>
+          </div>
+        </div>
+
+        {/* Tier 2: Dedicated Filter Ribbon Bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            flexWrap: 'wrap',
+            background: '#f8fafc',
+            padding: '7px 12px',
+            borderRadius: '8px',
+            border: '1px solid var(--border-color)',
+          }}
+        >
+          {/* Filter Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-muted)', fontSize: '0.76rem', fontWeight: 600, marginRight: '2px' }}>
+            <SlidersHorizontal size={13} />
+            <span>Filters:</span>
+          </div>
+
+          {/* Date Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Calendar size={13} style={{ color: 'var(--accent-blue)' }} />
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Date:</span>
+            <select
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value as any);
+                setCurrentPage(1);
+              }}
+              style={{
+                height: '32px',
+                padding: '0 10px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                borderRadius: '6px',
+                border: dateFilter === 'TODAY' ? '1px solid #93c5fd' : '1px solid var(--border-color)',
+                background: dateFilter === 'TODAY' ? '#eff6ff' : '#ffffff',
+                color: dateFilter === 'TODAY' ? '#1d4ed8' : 'var(--text-primary)',
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="TODAY">Today (Current)</option>
+              <option value="YESTERDAY">Yesterday</option>
+              <option value="LAST_7_DAYS">Last 7 Days</option>
+              <option value="THIS_MONTH">This Month</option>
+              <option value="ALL">All Time</option>
+              <option value="CUSTOM">Custom Range...</option>
+            </select>
+          </div>
+
+          {/* Custom Date Pickers when CUSTOM is selected */}
+          {dateFilter === 'CUSTOM' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => {
+                  setCustomStartDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  height: '32px',
+                  padding: '0 8px',
+                  fontSize: '0.78rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  background: '#ffffff',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>to</span>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => {
+                  setCustomEndDate(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{
+                  height: '32px',
+                  padding: '0 8px',
+                  fontSize: '0.78rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  background: '#ffffff',
+                  color: 'var(--text-primary)',
+                  outline: 'none',
+                }}
+              />
+            </div>
           )}
 
-          <button
-            onClick={refresh}
-            disabled={loading}
-            title="Refresh Database Logs"
-            style={{
-              background: '#ffffff',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              padding: '5px 10px',
-              borderRadius: '6px',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
+          {/* Event Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Event:</span>
+            <select
+              value={eventFilter}
+              onChange={(e) => {
+                setEventFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                height: '32px',
+                padding: '0 10px',
+                fontSize: '0.78rem',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                background: '#ffffff',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="ALL">All Events</option>
+              <option value="IN">IN (Entry)</option>
+              <option value="OUT">OUT (Exit)</option>
+              <option value="DETECTION">Detection</option>
+            </select>
+          </div>
 
-          <button
-            onClick={handleClear}
-            title="Clear all database logs"
-            style={{
-              background: '#fee2e2',
-              border: '1px solid #fca5a5',
-              color: '#b91c1c',
-              padding: '5px 10px',
-              borderRadius: '6px',
-              fontSize: '0.78rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <Trash2 size={13} />
-            Clear DB Logs
-          </button>
+          {/* Vehicle Class Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Vehicle:</span>
+            <select
+              value={vehicleFilter}
+              onChange={(e) => {
+                setVehicleFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              style={{
+                height: '32px',
+                padding: '0 10px',
+                fontSize: '0.78rem',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                background: '#ffffff',
+                color: 'var(--text-primary)',
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              <option value="ALL">All Vehicles</option>
+              <option value="CAR">Car</option>
+              <option value="TRUCK">Truck</option>
+              <option value="BUS">Bus</option>
+              <option value="PERSON">Pedestrian</option>
+            </select>
+          </div>
+
+          {/* Page Size & Reset Filter on Right */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Show:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                style={{
+                  height: '32px',
+                  padding: '0 8px',
+                  fontSize: '0.78rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                  background: '#ffffff',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value={10}>10 rows</option>
+                <option value={25}>25 rows</option>
+                <option value={50}>50 rows</option>
+              </select>
+            </div>
+
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                title="Reset all filters to defaults"
+                style={{
+                  height: '32px',
+                  padding: '0 10px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: '#475569',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#e2e8f0';
+                  e.currentTarget.style.color = '#1e293b';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#f1f5f9';
+                  e.currentTarget.style.color = '#475569';
+                }}
+              >
+                <RotateCcw size={12} />
+                Reset
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Table Content */}
-      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
         <table style={{ width: '100%', minWidth: '850px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)' }}>
-              <th style={{ padding: '8px 8px' }}>Timestamp</th>
-              <th style={{ padding: '8px 8px' }}>Camera</th>
-              <th style={{ padding: '8px 8px' }}>Vehicle Class</th>
-              <th style={{ padding: '8px 8px' }}>Number Plate (ANPR)</th>
-              <th style={{ padding: '8px 8px' }}>Track ID</th>
-              <th style={{ padding: '8px 8px' }}>Event</th>
-              <th style={{ padding: '8px 8px' }}>Confidence</th>
+            <tr
+              style={{
+                background: '#f8fafc',
+                borderBottom: '2px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.04em',
+              }}
+            >
+              <th style={{ padding: '10px 12px' }}>Timestamp</th>
+              <th style={{ padding: '10px 12px' }}>Camera</th>
+              <th style={{ padding: '10px 12px' }}>Vehicle Class</th>
+              <th style={{ padding: '10px 12px' }}>Number Plate (ANPR)</th>
+              <th style={{ padding: '10px 12px' }}>Track ID</th>
+              <th style={{ padding: '10px 12px' }}>Event</th>
+              <th style={{ padding: '10px 12px' }}>Confidence</th>
             </tr>
           </thead>
           <tbody>
@@ -416,15 +572,21 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       borderBottom: '1px solid var(--border-color)',
                       transition: 'background 0.15s ease',
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f8fafc';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
                   >
-                    <td style={{ padding: '8px 8px', color: 'var(--text-secondary)' }}>
+                    <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
                       {new Date(log.detectedAt).toLocaleTimeString([], { hour12: false })}
                       <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
                         {new Date(log.detectedAt).toLocaleDateString()}
                       </span>
                     </td>
 
-                    <td style={{ padding: '8px 8px', fontWeight: 600 }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>
                       {log.camera?.cameraName || log.cameraName || 'CCTV Feed'}
                       {log.camera?.location && (
                         <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block' }}>
@@ -433,7 +595,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       )}
                     </td>
 
-                    <td style={{ padding: '8px 8px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <span
                         style={{
                           background: vMeta.bg,
@@ -453,7 +615,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       </span>
                     </td>
 
-                    <td style={{ padding: '8px 8px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       {log.plateNumber ? (
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
                           <div
@@ -544,11 +706,11 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       )}
                     </td>
 
-                    <td style={{ padding: '8px 8px', color: 'var(--text-secondary)' }}>
+                    <td style={{ padding: '10px 12px', color: 'var(--text-secondary)' }}>
                       #{log.trackId || 'N/A'}
                     </td>
 
-                    <td style={{ padding: '8px 8px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       {isEntry && (
                         <span
                           style={{
@@ -598,7 +760,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
                       )}
                     </td>
 
-                    <td style={{ padding: '8px 8px' }}>
+                    <td style={{ padding: '10px 12px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#059669' }}>
                         <ShieldCheck size={13} />
                         {Math.round(((log.plateConfidence !== null && log.plateConfidence !== undefined) ? log.plateConfidence : (log.confidence || 0.9)) * 100)}%
