@@ -11,8 +11,9 @@ import { ModuleViews } from './modules/views/ModuleViews';
 import { socketClient } from './services/socket/socketClient';
 
 export function App() {
-  const { isAuthenticated, moduleAccess, role } = useAuth();
+  const { isAuthenticated, moduleAccess, role, isLoading } = useAuth();
   const [activeModule, setActiveModule] = useState<string>('cctv');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [viewMode] = useState<'GRID' | 'SINGLE'>('GRID');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -20,6 +21,11 @@ export function App() {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState<boolean>(false);
   const [isAiLoading, setIsAiLoading] = useState<boolean>(true);
+
+  // Clear search query on module change
+  useEffect(() => {
+    setSearchTerm('');
+  }, [activeModule]);
 
   // Modular Camera List Hook
   const { cameras, activeCamera, activeCameraId, addCamera } = useCameraList();
@@ -253,7 +259,38 @@ export function App() {
     [cameras, refetchDbAnalytics]
   );
 
-  // 1. LOGIN PAGE OPENS FIRST BEFORE ENTERING APPLICATION
+  // 1. Session verification loading state
+  if (isLoading) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          width: '100vw',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'radial-gradient(ellipse at 50% 0%, #1e293b 0%, #0f172a 70%, #020617 100%)',
+          color: '#94a3b8',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              border: '3px solid rgba(255, 255, 255, 0.1)',
+              borderTopColor: '#38bdf8',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite',
+            }}
+          />
+          <span style={{ fontSize: '0.9rem', color: '#cbd5e1' }}>Verifying session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. LOGIN PAGE OPENS FIRST BEFORE ENTERING APPLICATION
   if (!isAuthenticated) {
     return <LoginPage />;
   }
@@ -275,6 +312,9 @@ export function App() {
         {/* Fixed Header Navigation */}
         <div style={{ flexShrink: 0, zIndex: 30, background: 'var(--bg-body)' }}>
           <Navbar
+            activeModule={activeModule}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
             onOpenAddCamera={() => setIsModalOpen(true)}
             onOpenPlateScanner={() => setIsPlateModalOpen(true)}
             onOpenLogin={() => setIsLoginModalOpen(true)}
@@ -289,6 +329,7 @@ export function App() {
           <main className="app-container" style={{ paddingBottom: '2.5rem' }}>
             <ModuleViews
               moduleId={activeModule}
+              searchTerm={searchTerm}
               cameras={cameras}
               activeCamera={activeCamera}
               viewMode={viewMode}

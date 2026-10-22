@@ -1,19 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Trash2, Search, RefreshCw, X } from 'lucide-react';
+import { Plus, Trash2, Search, RefreshCw, X } from 'lucide-react';
 import { usersApi } from '../../services/api';
 
 export interface UsersViewProps {
   canWrite?: boolean;
   canDelete?: boolean;
+  searchTerm?: string;
 }
 
 export const UsersView: React.FC<UsersViewProps> = ({
   canWrite = false,
   canDelete = false,
+  searchTerm,
 }) => {
   const [userList, setUserList] = useState<any[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [isUserLoading, setIsUserLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setUserSearch(searchTerm);
+    }
+  }, [searchTerm]);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [newUserData, setNewUserData] = useState({
     name: '',
@@ -90,38 +98,73 @@ export const UsersView: React.FC<UsersViewProps> = ({
     <div style={{ padding: '0.4rem 0.5rem' }}>
       {/* Users Table Panel */}
       <div className="glass-panel" style={{ padding: '0.8rem', overflow: 'hidden' }}>
-        {/* Header Controls */}
+        {/* Unified Table Controls Toolbar (Search + Action Buttons) */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
-            flexWrap: 'wrap',
+            justifyContent: 'space-between',
             gap: '12px',
+            flexWrap: 'wrap',
             marginBottom: '1rem',
+            background: '#f8fafc',
+            padding: '0.6rem 0.8rem',
+            borderRadius: '10px',
+            border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Users size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              User Management (Role: USER)
-            </h3>
-            <span
+          {/* Left: Search Input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flex: '1',
+              minWidth: '220px',
+              maxWidth: '360px',
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            }}
+          >
+            <Search size={15} color="var(--text-muted)" />
+            <input
+              type="text"
+              placeholder="Search user by name, email, phone..."
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
               style={{
-                fontSize: '0.75rem',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600,
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontSize: '0.82rem',
+                width: '100%',
+                color: 'var(--text-primary)',
               }}
-            >
-              {filteredUsers.length} Users
-            </span>
+            />
+            {userSearch && (
+              <button
+                type="button"
+                onClick={() => setUserSearch('')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          {/* Action buttons: Refresh, Add */}
+          {/* Right: Action buttons (Refresh + Add) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -140,6 +183,7 @@ export const UsersView: React.FC<UsersViewProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
               }}
             >
               <RefreshCw size={13} className={isUserLoading ? 'animate-spin' : ''} />
@@ -162,45 +206,13 @@ export const UsersView: React.FC<UsersViewProps> = ({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
                 }}
               >
                 <Plus size={14} />
                 Add New User
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Filter / Search Bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            flexWrap: 'wrap',
-            marginBottom: '1rem',
-            background: '#f8fafc',
-            padding: '0.6rem 0.8rem',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '200px' }}>
-            <Search size={15} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Search user by name, email, phone..."
-              value={userSearch}
-              onChange={(e) => setUserSearch(e.target.value)}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                fontSize: '0.82rem',
-                width: '100%',
-                color: 'var(--text-primary)',
-              }}
-            />
           </div>
         </div>
 

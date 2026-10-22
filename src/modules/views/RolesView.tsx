@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShieldCheck, Shield, Plus, Trash2, Search, RefreshCw, X, Eye, Edit3 } from 'lucide-react';
+import { Shield, Plus, Trash2, Search, RefreshCw, X, Eye, Edit3 } from 'lucide-react';
 import { rolesApi } from '../../services/api';
 
 export interface ModulePermissionFormItem {
@@ -15,11 +15,11 @@ const SYSTEM_MODULES_CONFIG: ModulePermissionFormItem[] = [
   { id: 'cctv', name: 'CCTV Surveillance', desc: 'Live multi-camera grid & RTSP video streaming', read: true, write: true, delete: false },
   { id: 'detection', name: 'Traffic Detection & ANPR', desc: 'Vehicle classification, IN/OUT direction & plate scanning', read: true, write: true, delete: false },
   { id: 'parking', name: 'Smart Parking Management', desc: 'Parking areas, slot matrix, hourly rates & occupancy', read: true, write: true, delete: false },
-  { id: 'booking', name: 'Parking & Vehicle Bookings', desc: 'Vehicle reservations, driver details, start/end dates & schedule', read: true, write: true, delete: false },
+  { id: 'booking', name: 'Parking Bookings', desc: 'Vehicle reservations, driver details, start/end dates & schedule', read: true, write: true, delete: false },
   { id: 'toll', name: 'Toll Management', desc: 'Toll plaza name & per entry charge management', read: true, write: true, delete: false },
   { id: 'users', name: 'User Management', desc: 'Public citizens & regular registered user accounts', read: true, write: true, delete: false },
   { id: 'staff', name: 'Staff Management', desc: 'Police officers, admins & parking operator staff', read: true, write: true, delete: false },
-  { id: 'roles', name: 'Role & Module Access (RBAC)', desc: 'Role definitions, granular module & action permissions', read: true, write: false, delete: false },
+  { id: 'roles', name: 'Role & Module Access', desc: 'Role definitions, granular module & action permissions', read: true, write: false, delete: false },
 ];
 
 export interface RolesViewProps {
@@ -214,85 +214,7 @@ export const RolesView: React.FC<RolesViewProps> = ({
     <div style={{ padding: '0.4rem 0.5rem' }}>
       {/* Roles Main Panel */}
       <div className="glass-panel" style={{ padding: '0.8rem', overflow: 'hidden' }}>
-        {/* Header Controls */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '12px',
-            marginBottom: '1rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <ShieldCheck size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              Role &amp; Module Access (RBAC) Management
-            </h3>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600,
-              }}
-            >
-              {filteredRoles.length} Roles
-            </span>
-          </div>
 
-          {/* Action buttons: Refresh, Add Role */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={fetchRoles}
-              title="Refresh Roles"
-              style={{
-                background: '#ffffff',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-secondary)',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <RefreshCw size={13} />
-              Refresh
-            </button>
-
-            {canWrite && (
-              <button
-                type="button"
-                onClick={handleOpenAddRole}
-                style={{
-                  background: 'var(--accent-blue)',
-                  color: '#ffffff',
-                  border: 'none',
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <Plus size={14} />
-                + Add New Role
-              </button>
-            )}
-          </div>
-        </div>
 
         {/* Create / Edit Role Modal with Granular Read / Write / Delete Checkboxes Table */}
         {isAddRoleOpen && canWrite && (
@@ -332,13 +254,8 @@ export const RolesView: React.FC<RolesViewProps> = ({
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
                   <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
-                    {editingRoleId ? 'Edit Role & Module Permissions' : 'Create New Role & Module Permissions Matrix'}
+                    {editingRoleId ? 'Edit Role' : 'Create New Role'}
                   </h3>
-                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>
-                    {editingRoleId
-                      ? 'Role display title aur module access (Read, Write, Delete) update karein'
-                      : 'Har module ke samne Read, Write, aur Delete ka checkbox select karein'}
-                  </p>
                 </div>
                 <button
                   type="button"
@@ -602,8 +519,8 @@ export const RolesView: React.FC<RolesViewProps> = ({
                     {isRoleSaving
                       ? 'Saving...'
                       : editingRoleId
-                      ? 'Update Role & Permissions'
-                      : 'Save Role with Configured Permissions'}
+                        ? 'Update Role'
+                        : 'Save Role '}
                   </button>
                 </div>
               </form>
@@ -611,7 +528,7 @@ export const RolesView: React.FC<RolesViewProps> = ({
           </div>
         )}
 
-        {/* Search Bar & Roles Count */}
+        {/* Unified Table Controls & Search Bar */}
         <div
           style={{
             display: 'flex',
@@ -625,38 +542,101 @@ export const RolesView: React.FC<RolesViewProps> = ({
             border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '220px' }}>
-            <Search size={15} color="var(--text-muted)" />
+          {/* Search Input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              minWidth: '220px',
+              maxWidth: '320px',
+              flex: '1 1 auto',
+            }}
+          >
+            <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
             <input
               type="text"
-              placeholder="Search roles by code or display title..."
+              placeholder="Search roles by name or description..."
               value={roleSearch}
               onChange={(e) => setRoleSearch(e.target.value)}
               style={{
                 border: 'none',
-                background: 'transparent',
                 outline: 'none',
-                fontSize: '0.85rem',
+                background: 'transparent',
+                fontSize: '0.8rem',
                 width: '100%',
                 color: 'var(--text-primary)',
               }}
             />
+            {roleSearch && (
+              <button
+                type="button"
+                onClick={() => setRoleSearch('')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-          {roleSearch && (
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => setRoleSearch('')}
+              onClick={fetchRoles}
+              title="Refresh Roles"
               style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
+                background: '#ffffff',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
                 cursor: 'pointer',
-                fontSize: '0.78rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
-              Clear
+              <RefreshCw size={13} />
+              Refresh
             </button>
-          )}
+
+            {canWrite && (
+              <button
+                type="button"
+                onClick={handleOpenAddRole}
+                style={{
+                  background: 'var(--accent-blue)',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <Plus size={14} />
+                + Add New Role
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Roles Table */}

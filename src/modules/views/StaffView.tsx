@@ -1,18 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Plus, Trash2, Search, RefreshCw, X } from 'lucide-react';
+import { Plus, Trash2, Search, RefreshCw, X } from 'lucide-react';
 import { staffApi } from '../../services/api';
 
 export interface StaffViewProps {
   canWrite?: boolean;
   canDelete?: boolean;
+  searchTerm?: string;
 }
 
 export const StaffView: React.FC<StaffViewProps> = ({
   canWrite = false,
   canDelete = false,
+  searchTerm,
 }) => {
   const [staffList, setStaffList] = useState<any[]>([]);
   const [staffSearch, setStaffSearch] = useState('');
+
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setStaffSearch(searchTerm);
+    }
+  }, [searchTerm]);
   const [staffFilter, setStaffFilter] = useState<'ALL' | 'POLICE' | 'ADMIN' | 'PARKING'>('ALL');
   const [isStaffLoading, setIsStaffLoading] = useState(false);
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
@@ -98,38 +106,103 @@ export const StaffView: React.FC<StaffViewProps> = ({
     <div style={{ padding: '0.4rem 0.5rem' }}>
       {/* Staff Table Panel */}
       <div className="glass-panel" style={{ padding: '0.8rem', overflow: 'hidden' }}>
-        {/* Header Controls */}
+        {/* Unified Table Controls Toolbar (Search + Role Filters + Action Buttons) */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
-            flexWrap: 'wrap',
+            justifyContent: 'space-between',
             gap: '12px',
+            flexWrap: 'wrap',
             marginBottom: '1rem',
+            background: '#f8fafc',
+            padding: '0.6rem 0.8rem',
+            borderRadius: '10px',
+            border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Shield size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              Staff Management (Police, Admin, Parking)
-            </h3>
-            <span
+          {/* Left: Search Input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flex: '1',
+              minWidth: '220px',
+              maxWidth: '360px',
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            }}
+          >
+            <Search size={15} color="var(--text-muted)" />
+            <input
+              type="text"
+              placeholder="Search staff by badge, name, email..."
+              value={staffSearch}
+              onChange={(e) => setStaffSearch(e.target.value)}
               style={{
-                fontSize: '0.75rem',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600,
+                border: 'none',
+                background: 'transparent',
+                outline: 'none',
+                fontSize: '0.82rem',
+                width: '100%',
+                color: 'var(--text-primary)',
               }}
-            >
-              {filteredStaff.length} Records
-            </span>
+            />
+            {staffSearch && (
+              <button
+                type="button"
+                onClick={() => setStaffSearch('')}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  padding: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+                title="Clear search"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          {/* Action buttons: Refresh, Add */}
+          {/* Center: Role Filter Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Role:</span>
+            <div style={{ display: 'flex', gap: '5px' }}>
+              {(['ALL', 'POLICE', 'ADMIN', 'PARKING'] as const).map((rTab) => {
+                const isSelected = staffFilter === rTab;
+                return (
+                  <button
+                    key={rTab}
+                    type="button"
+                    onClick={() => setStaffFilter(rTab)}
+                    style={{
+                      background: isSelected ? 'var(--accent-blue)' : '#ffffff',
+                      color: isSelected ? '#ffffff' : 'var(--text-secondary)',
+                      border: isSelected ? '1px solid var(--accent-blue)' : '1px solid var(--border-color)',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.76rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {rTab === 'ALL' ? 'All' : rTab}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right: Action buttons (Refresh + Add) */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <button
               type="button"
@@ -148,6 +221,7 @@ export const StaffView: React.FC<StaffViewProps> = ({
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
               }}
             >
               <RefreshCw size={13} className={isStaffLoading ? 'animate-spin' : ''} />
@@ -170,74 +244,13 @@ export const StaffView: React.FC<StaffViewProps> = ({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
                 }}
               >
                 <Plus size={14} />
                 Add Staff Member
               </button>
             )}
-          </div>
-        </div>
-
-        {/* Filter Bar (Search + Role Pills) */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
-            flexWrap: 'wrap',
-            marginBottom: '1rem',
-            background: '#f8fafc',
-            padding: '0.6rem 0.8rem',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color)',
-          }}
-        >
-          {/* Search Input */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '200px' }}>
-            <Search size={15} color="var(--text-muted)" />
-            <input
-              type="text"
-              placeholder="Search staff by badge, name, email..."
-              value={staffSearch}
-              onChange={(e) => setStaffSearch(e.target.value)}
-              style={{
-                border: 'none',
-                background: 'transparent',
-                outline: 'none',
-                fontSize: '0.82rem',
-                width: '100%',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-
-          {/* Role Filter Buttons */}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            {(['ALL', 'POLICE', 'ADMIN', 'PARKING'] as const).map((rTab) => {
-              const isSelected = staffFilter === rTab;
-              return (
-                <button
-                  key={rTab}
-                  type="button"
-                  onClick={() => setStaffFilter(rTab)}
-                  style={{
-                    background: isSelected ? 'var(--accent-blue)' : '#ffffff',
-                    color: isSelected ? '#ffffff' : 'var(--text-secondary)',
-                    border: isSelected ? '1px solid var(--accent-blue)' : '1px solid var(--border-color)',
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    fontSize: '0.76rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {rTab === 'ALL' ? 'All' : rTab}
-                </button>
-              );
-            })}
           </div>
         </div>
 
@@ -372,7 +385,7 @@ export const StaffView: React.FC<StaffViewProps> = ({
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                Add Staff Member (Police / Admin / Parking)
+                Add Staff Member
               </h3>
               <button type="button" onClick={() => setIsAddStaffOpen(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                 <X size={18} />

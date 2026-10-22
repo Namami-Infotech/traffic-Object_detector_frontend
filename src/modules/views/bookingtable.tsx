@@ -28,17 +28,25 @@ import { QRScannerModal } from './QRScannerModal';
 export interface BookingTableProps {
   canWrite?: boolean;
   canDelete?: boolean;
+  searchTerm?: string;
 }
 
 export const BookingTable: React.FC<BookingTableProps> = ({
   canWrite = true,
   canDelete = true,
+  searchTerm: propSearchTerm,
 }) => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [parkingLots, setParkingLots] = useState<any[]>([]);
   const [stats, setStats] = useState<BookingStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (propSearchTerm !== undefined) {
+      setSearchTerm(propSearchTerm);
+    }
+  }, [propSearchTerm]);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
@@ -439,73 +447,107 @@ export const BookingTable: React.FC<BookingTableProps> = ({
 
       {/* Main Panel */}
       <div className="glass-panel" style={{ padding: '1rem', overflow: 'hidden' }}>
-        {/* Header Controls */}
+        {/* Unified Table Controls & Search Bar */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '10px',
             flexWrap: 'wrap',
-            gap: '12px',
             marginBottom: '1rem',
+            background: '#f8fafc',
+            padding: '0.6rem 0.8rem',
+            borderRadius: '8px',
+            border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CalendarCheck size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              Parking & Vehicle Bookings
-            </h3>
-            <span
+          {/* Search Input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              minWidth: '220px',
+              maxWidth: '300px',
+              flex: '1 1 auto',
+            }}
+          >
+            <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search vehicle, driver, phone, lot..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
               style={{
-                fontSize: '0.75rem',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600,
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontSize: '0.8rem',
+                width: '100%',
+                color: 'var(--text-primary)',
               }}
-            >
-              {filteredBookings.length} Bookings
-            </span>
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {/* Status Tabs */}
-            <div
-              style={{
-                display: 'flex',
-                background: '#f8fafc',
-                padding: '3px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              {(['ALL', 'CONFIRMED', 'PENDING', 'COMPLETED', 'EXPIRED', 'CANCELLED'] as const).map((tab) => {
-                const isActive = statusFilter === tab;
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setStatusFilter(tab)}
-                    style={{
-                      background: isActive ? 'var(--accent-blue)' : 'transparent',
-                      color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                      border: 'none',
-                      padding: '5px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.74rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    {tab}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Status Tabs */}
+          <div
+            style={{
+              display: 'flex',
+              background: '#ffffff',
+              padding: '3px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+              overflowX: 'auto',
+            }}
+          >
+            {(['ALL', 'CONFIRMED', 'PENDING', 'COMPLETED', 'EXPIRED', 'CANCELLED'] as const).map((tab) => {
+              const isActive = statusFilter === tab;
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setStatusFilter(tab)}
+                  style={{
+                    background: isActive ? 'var(--accent-blue)' : 'transparent',
+                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                    border: 'none',
+                    padding: '5px 10px',
+                    borderRadius: '6px',
+                    fontSize: '0.74rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {tab}
+                </button>
+              );
+            })}
+          </div>
 
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={fetchBookings}
@@ -579,35 +621,6 @@ export const BookingTable: React.FC<BookingTableProps> = ({
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '1rem',
-            background: '#f8fafc',
-            padding: '0.6rem 0.8rem',
-            borderRadius: '8px',
-            border: '1px solid var(--border-color)',
-          }}
-        >
-          <Search size={15} color="var(--text-muted)" />
-          <input
-            type="text"
-            placeholder="Search by Gadi Number (e.g. DL 01 AB 1234), Name, Phone, or Parking Area..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              outline: 'none',
-              fontSize: '0.82rem',
-              width: '100%',
-              color: 'var(--text-primary)',
-            }}
-          />
-        </div>
 
         {/* Bookings Table */}
         <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>

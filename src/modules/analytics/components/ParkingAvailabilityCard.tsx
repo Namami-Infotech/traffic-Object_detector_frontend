@@ -45,7 +45,7 @@ export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = (
   vehicleInOut,
 }) => {
   const [dbTotalSlots, setDbTotalSlots] = useState<number | null>(null);
-  const [totalLotsCount, setTotalLotsCount] = useState<number>(0);
+  const [_totalLotsCount, setTotalLotsCount] = useState<number>(0);
 
   // Auto-fetch total slots count across all registered parking lots
   const loadParkingStats = useCallback(async () => {
@@ -335,14 +335,7 @@ export const ParkingAvailabilityCard: React.FC<ParkingAvailabilityCardProps> = (
               >
                 Smart Parking Occupancy
               </h3>
-              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                Auto-tracked via Car, Bus & Person IN / OUT Detection
-                {totalLotsCount > 0 && (
-                  <span style={{ marginLeft: '6px', opacity: 0.85, fontWeight: 500 }}>
-                    • {totalLotsCount} {totalLotsCount === 1 ? 'Area' : 'Areas'} ({totalSlots} Total Slots)
-                  </span>
-                )}
-              </p>
+              
             </div>
           </div>
 

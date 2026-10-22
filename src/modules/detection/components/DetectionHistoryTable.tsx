@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  Database,
   RefreshCw,
   Trash2,
   ArrowDownRight,
@@ -23,11 +22,15 @@ import { API_BASE_URL } from '../../../app/config/env.config';
 export interface DetectionHistoryTableProps {
   liveLogs?: DetectionLogEntry[];
   onClearLogs?: () => void;
+  onOpenPlateScanner?: () => void;
+  searchTerm?: string;
 }
 
 export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
   liveLogs = [],
   onClearLogs,
+  onOpenPlateScanner,
+  searchTerm: propSearchTerm,
 }) => {
   const [previewImage, setPreviewImage] = useState<{
     url: string;
@@ -69,6 +72,13 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
     clearLogs,
   } = useDetectionLogs({ liveLogs });
 
+  useEffect(() => {
+    if (propSearchTerm !== undefined) {
+      setSearchTerm(propSearchTerm);
+      setCurrentPage(1);
+    }
+  }, [propSearchTerm, setSearchTerm, setCurrentPage]);
+
   const handleClear = async () => {
     if (window.confirm('Are you sure you want to clear all database detection logs?')) {
       await clearLogs();
@@ -78,85 +88,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
 
   return (
     <div className="glass-panel" style={{ marginTop: '1rem', padding: '0.8rem', overflow: 'hidden' }}>
-      {/* Table Header Controls */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px',
-          marginBottom: '1rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Database size={20} color="var(--accent-blue)" />
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-            Traffic Detection & Crossing History
-          </h3>
-          <span
-            style={{
-              fontSize: '0.75rem',
-              background: '#eff6ff',
-              color: '#1d4ed8',
-              border: '1px solid #bfdbfe',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              fontWeight: 600,
-            }}
-          >
-            {totalCount} Records {dateFilter === 'TODAY' ? '(Today)' : dateFilter === 'ALL' ? '(All Time)' : ''}
-          </span>
-        </div>
-
-        {/* Action buttons: Refresh, Clear */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            onClick={refresh}
-            disabled={loading}
-            title="Refresh Database Logs"
-            style={{
-              background: '#ffffff',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-secondary)',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-
-          <button
-            onClick={handleClear}
-            title="Clear all database logs"
-            style={{
-              background: '#fee2e2',
-              border: '1px solid #fca5a5',
-              color: '#b91c1c',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            <Trash2 size={13} />
-            Clear DB Logs
-          </button>
-        </div>
-      </div>
-
-      {/* Filter / Search Bar */}
+      {/* Unified Table Controls & Filter Toolbar */}
       <div
         style={{
           display: 'flex',
@@ -171,11 +103,24 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
         }}
       >
         {/* Search Input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '180px' }}>
-          <Search size={15} color="var(--text-muted)" />
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: '#ffffff',
+            border: '1px solid var(--border-color)',
+            borderRadius: '6px',
+            padding: '4px 10px',
+            minWidth: '200px',
+            maxWidth: '280px',
+            flex: '1 1 auto',
+          }}
+        >
+          <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
           <input
             type="text"
-            placeholder="Search by vehicle, plate, camera or location..."
+            placeholder="Search plate, camera, label..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -183,13 +128,32 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
             }}
             style={{
               border: 'none',
-              background: 'transparent',
               outline: 'none',
-              fontSize: '0.82rem',
+              background: 'transparent',
+              fontSize: '0.8rem',
               width: '100%',
               color: 'var(--text-primary)',
             }}
           />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchTerm('');
+                setCurrentPage(1);
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                display: 'flex',
+              }}
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         {/* Date Filter (Default: Today / Current Data) */}
@@ -334,6 +298,74 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
             <option value={25}>25 rows</option>
             <option value={50}>50 rows</option>
           </select>
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto', flexWrap: 'wrap' }}>
+          {onOpenPlateScanner && (
+            <button
+              type="button"
+              onClick={onOpenPlateScanner}
+              style={{
+                background: 'var(--accent-blue)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              Scan Plate (ANPR)
+            </button>
+          )}
+
+          <button
+            onClick={refresh}
+            disabled={loading}
+            title="Refresh Database Logs"
+            style={{
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              color: 'var(--text-secondary)',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+
+          <button
+            onClick={handleClear}
+            title="Clear all database logs"
+            style={{
+              background: '#fee2e2',
+              border: '1px solid #fca5a5',
+              color: '#b91c1c',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            <Trash2 size={13} />
+            Clear DB Logs
+          </button>
         </div>
       </div>
 

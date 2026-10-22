@@ -26,6 +26,7 @@ import { LocationViewModal } from './LocationViewModal';
 export interface HistoricalPlaceViewProps {
   canWrite?: boolean;
   canDelete?: boolean;
+  searchTerm?: string;
 }
 
 const DEFAULT_FALLBACK_IMAGE =
@@ -34,9 +35,16 @@ const DEFAULT_FALLBACK_IMAGE =
 export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
   canWrite = true,
   canDelete = true,
+  searchTerm,
 }) => {
   const [places, setPlaces] = useState<HistoricalPlaceItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setSearchQuery(searchTerm);
+    }
+  }, [searchTerm]);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -461,102 +469,37 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
 
       {/* Main Glass-Panel Container */}
       <div className="glass-panel" style={{ padding: '1rem', overflow: 'hidden' }}>
-        {/* Header Controls */}
+        {/* Unified Table Controls Toolbar (Search + Status Filters + Action Buttons) */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
-            flexWrap: 'wrap',
+            justifyContent: 'space-between',
             gap: '12px',
-            marginBottom: '1rem',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Landmark size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              Historical Places Archive
-            </h3>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600,
-              }}
-            >
-              {filteredPlaces.length} Places
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={fetchPlaces}
-              disabled={isLoading}
-              title="Refresh Places"
-              style={{
-                background: '#ffffff',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-secondary)',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-
-            {canWrite && (
-              <button
-                type="button"
-                onClick={handleOpenAdd}
-                style={{
-                  background: 'var(--accent-blue)',
-                  border: 'none',
-                  color: '#ffffff',
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <Plus size={14} />
-                Add Historical Place
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Search & Filter Bar */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
             flexWrap: 'wrap',
             marginBottom: '1rem',
             background: '#f8fafc',
             padding: '0.6rem 0.8rem',
-            borderRadius: '8px',
+            borderRadius: '10px',
             border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '220px' }}>
+          {/* Left: Search Input */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flex: '1',
+              minWidth: '220px',
+              maxWidth: '360px',
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            }}
+          >
             <Search size={15} color="var(--text-muted)" />
             <input
               type="text"
@@ -585,32 +528,100 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                 }}
+                title="Clear search"
               >
                 <X size={14} />
               </button>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map((st) => (
+          {/* Center: Status Filter Pills */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
+            <div
+              style={{
+                display: 'flex',
+                background: '#ffffff',
+                padding: '3px',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+              }}
+            >
+              {(['ALL', 'ACTIVE', 'INACTIVE'] as const).map((st) => {
+                const isActive = statusFilter === st;
+                return (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setStatusFilter(st)}
+                    style={{
+                      background: isActive ? 'var(--accent-blue)' : 'transparent',
+                      color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                      border: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      fontSize: '0.76rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {st}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right: Action Buttons (Refresh + Add) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={fetchPlaces}
+              disabled={isLoading}
+              title="Refresh Places"
+              style={{
+                background: '#ffffff',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              }}
+            >
+              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+
+            {canWrite && (
               <button
-                key={st}
                 type="button"
-                onClick={() => setStatusFilter(st)}
+                onClick={handleOpenAdd}
                 style={{
-                  background: statusFilter === st ? '#ffffff' : 'transparent',
-                  color: statusFilter === st ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                  border: statusFilter === st ? '1px solid var(--border-color)' : 'none',
-                  padding: '3px 8px',
-                  borderRadius: '5px',
-                  fontSize: '0.74rem',
+                  background: 'var(--accent-blue)',
+                  border: 'none',
+                  color: '#ffffff',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
                   fontWeight: 600,
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
                 }}
               >
-                {st}
+                <Plus size={14} />
+                Add Historical Place
               </button>
-            ))}
+            )}
           </div>
         </div>
 
@@ -1062,11 +1073,8 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-                  {editingId ? 'Edit Historical Place' : 'Add New Historical Place'}
+                  {editingId ? 'Edit Historical Place' : 'Add Historical Place'}
                 </h3>
-                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Name, About History, Location with Interactive Map &amp; Photo Array
-                </div>
               </div>
               <button
                 type="button"
@@ -1131,11 +1139,8 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
                   background: '#fafafa',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <MapPin size={14} color="var(--accent-blue)" />
-                    Location &amp; Map Coordinates
-                  </label>
+                {/* <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  
                   <button
                     type="button"
                     onClick={() => setShowMapPicker(!showMapPicker)}
@@ -1150,7 +1155,7 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
                   >
                     {showMapPicker ? 'Hide Map' : 'Show Map'}
                   </button>
-                </div>
+                </div> */}
 
                 <input
                   type="text"
@@ -1186,7 +1191,7 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
               {/* 3. About Description */}
               <div>
                 <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
-                  About (History, Significance &amp; Architectural Details) <span style={{ color: '#ef4444' }}>*</span>
+                  About <span style={{ color: '#ef4444' }}>*</span>
                 </label>
                 <textarea
                   required
@@ -1429,7 +1434,7 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
               </div>
 
               {/* 5. Status */}
-              <div>
+              {/* <div>
                 <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '4px', display: 'block' }}>
                   Publication Status
                 </label>
@@ -1450,7 +1455,7 @@ export const HistoricalPlaceView: React.FC<HistoricalPlaceViewProps> = ({
                   <option value="ACTIVE">ACTIVE (Publicly Visible)</option>
                   <option value="INACTIVE">INACTIVE (Hidden from Public)</option>
                 </select>
-              </div>
+              </div> */}
 
               {/* Form Buttons */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem' }}>

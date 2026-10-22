@@ -136,9 +136,7 @@ export const CameraFormModal: React.FC<CameraFormModalProps> = ({
               <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                 Connect Traffic Camera
               </h3>
-              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                Register and stream a CCTV, RTSP or USB device
-              </p>
+              
             </div>
           </div>
           <button

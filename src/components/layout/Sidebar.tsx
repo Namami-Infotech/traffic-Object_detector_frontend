@@ -144,28 +144,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
       </div>
-
-      {/* Role Access Label */}
-      {!isCollapsed && (
-        <div style={{ padding: '14px 18px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.6px' }}>
-            Authorized Modules ({permittedModules.length})
-          </span>
-          <span
-            style={{
-              background: 'rgba(37, 99, 235, 0.2)',
-              color: '#60a5fa',
-              fontSize: '0.65rem',
-              fontWeight: 700,
-              padding: '1px 6px',
-              borderRadius: '6px',
-            }}
-          >
-            {role || 'ADMIN'}
-          </span>
-        </div>
-      )}
-
       {/* Navigation Modules (Strictly filtered by role permissions JSON) */}
       <nav
         style={{

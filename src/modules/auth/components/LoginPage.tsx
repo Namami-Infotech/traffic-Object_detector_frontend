@@ -8,7 +8,6 @@ import {
   EyeOff,
   Sparkles,
   KeyRound,
-  Layers,
   ArrowRight,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -122,9 +121,6 @@ export const LoginPage: React.FC = () => {
           >
             TrafficVision AI
           </h1>
-          <p style={{ fontSize: '0.9rem', color: '#94a3b8', margin: 0 }}>
-            Intelligent CCTV Traffic Monitoring &amp; RBAC Command Center
-          </p>
         </div>
 
         {/* Login Card */}
@@ -171,9 +167,6 @@ export const LoginPage: React.FC = () => {
               <div>
                 <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#ffffff' }}>
                   Admin ID: <span style={{ color: '#38bdf8' }}>admin</span> &bull; Pass: <span style={{ color: '#38bdf8' }}>123456</span>
-                </div>
-                <div style={{ fontSize: '0.74rem', color: '#94a3b8' }}>
-                  Click Auto-Fill for instant admin sign-in
                 </div>
               </div>
             </div>
@@ -361,25 +354,6 @@ export const LoginPage: React.FC = () => {
               )}
             </button>
           </form>
-
-          {/* Dynamic RBAC feature callout */}
-          <div
-            style={{
-              marginTop: '1.5rem',
-              paddingTop: '1.25rem',
-              borderTop: '1px solid rgba(255, 255, 255, 0.08)',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '10px',
-            }}
-          >
-            <Layers size={18} color="#38bdf8" style={{ marginTop: '2px', flexShrink: 0 }} />
-            <div style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: '1.4' }}>
-              <strong style={{ color: '#e2e8f0' }}>Dynamic Module RBAC:</strong> Login hone ke baad
-              backend ki <code>/api/v1/roles/user-access</code> API call hogi aur aapke role ke
-              assigned JSON permissions ke according customized sidebar generate hoga.
-            </div>
-          </div>
         </div>
       </div>
     </div>

@@ -29,6 +29,7 @@ export interface ModuleViewsProps {
   onClearLogs?: () => void;
   onOpenPlateScanner?: () => void;
   onOpenAddCamera?: () => void;
+  searchTerm?: string;
 }
 
 export const ModuleViews: React.FC<ModuleViewsProps> = ({
@@ -50,6 +51,7 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
   onClearLogs,
   onOpenPlateScanner,
   onOpenAddCamera,
+  searchTerm,
 }) => {
   const { hasActionPermission } = useAuth();
   const canRead = hasActionPermission(moduleId, 'read');
@@ -74,6 +76,7 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
         cameraVehicleInOutMap={cameraVehicleInOutMap}
         onOpenPlateScanner={onOpenPlateScanner}
         onOpenAddCamera={onOpenAddCamera}
+        searchTerm={searchTerm}
       />
     );
   }
@@ -88,16 +91,17 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
         liveLogs={liveLogs}
         onClearLogs={onClearLogs}
         onOpenPlateScanner={onOpenPlateScanner}
+        searchTerm={searchTerm}
       />
     );
   }
 
   if (moduleId === 'users') {
-    return <UsersView canWrite={canWrite} canDelete={canDelete} />;
+    return <UsersView canWrite={canWrite} canDelete={canDelete} searchTerm={searchTerm} />;
   }
 
   if (moduleId === 'staff') {
-    return <StaffView canWrite={canWrite} canDelete={canDelete} />;
+    return <StaffView canWrite={canWrite} canDelete={canDelete} searchTerm={searchTerm} />;
   }
 
   if (moduleId === 'parking') {
@@ -117,12 +121,13 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
         displayActiveCount={displayActiveCount}
         dbCameraStats={dbCameraStats}
         cameraVehicleInOutMap={cameraVehicleInOutMap}
+        searchTerm={searchTerm}
       />
     );
   }
 
   if (moduleId === 'booking') {
-    return <BookingTable canWrite={canWrite} canDelete={canDelete} />;
+    return <BookingTable canWrite={canWrite} canDelete={canDelete} searchTerm={searchTerm} />;
   }
 
   if (moduleId === 'roles') {
@@ -130,11 +135,11 @@ export const ModuleViews: React.FC<ModuleViewsProps> = ({
   }
 
   if (moduleId === 'toll') {
-    return <TollView canWrite={canWrite} canDelete={canDelete} />;
+    return <TollView canWrite={canWrite} canDelete={canDelete} searchTerm={searchTerm} />;
   }
 
   if (moduleId === 'historicalPlaces') {
-    return <HistoricalPlaceView canWrite={canWrite} canDelete={canDelete} />;
+    return <HistoricalPlaceView canWrite={canWrite} canDelete={canDelete} searchTerm={searchTerm} />;
   }
 
   return (

@@ -283,9 +283,6 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({
 
       {/* Quick City Presets */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, marginRight: '2px' }}>
-          Quick Cities:
-        </span>
         {POPULAR_HERITAGE_CITIES.map((c) => (
           <button
             key={c.name}
@@ -341,9 +338,7 @@ export const LocationMapPicker: React.FC<LocationMapPickerProps> = ({
             Pin: {currentCoords.lat.toFixed(4)}° N, {currentCoords.lng.toFixed(4)}° E
           </span>
         </div>
-        <span style={{ fontStyle: 'italic', color: '#64748b' }}>
-          Click or drag marker on map to set location
-        </span>
+       
       </div>
     </div>
   );

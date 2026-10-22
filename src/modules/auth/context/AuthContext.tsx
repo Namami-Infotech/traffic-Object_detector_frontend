@@ -18,8 +18,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const USER_KEY = 'traffic_auth_user';
-
 const ACTIVE_SYSTEM_MODULES = new Set(['cctv', 'detection', 'users', 'parking', 'booking', 'toll', 'staff', 'roles']);
 
 const sanitizeModules = (modules: ModulePermission[], role?: string | null): ModulePermission[] => {
@@ -50,25 +48,37 @@ const sanitizeModules = (modules: ModulePermission[], role?: string | null): Mod
   return filtered;
 };
 
+export const getCookieToken = (): string | null => {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)(?:traffic_token|accessToken)=([^;]+)/);
+  return match && match[1] ? decodeURIComponent(match[1]) : null;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    try {
-      const saved = localStorage.getItem(USER_KEY);
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
+  // Pure in-memory React state - no localStorage used
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [moduleAccess, setModuleAccess] = useState<ModulePermission[]>([]);
+  // Start loading only if a cookie token exists and needs verification
+  const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(getCookieToken()));
+
+  // Logout callback: clears cookies and resets all React auth state
+  const logout = useCallback(() => {
+    // Cleanup any lingering legacy storage keys once
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('traffic_auth_user');
+      localStorage.removeItem('traffic_auth_token');
+      localStorage.removeItem('traffic_refresh_token');
     }
-  });
-  const [moduleAccess, setModuleAccess] = useState<ModulePermission[]>(() => {
-    try {
-      const saved = localStorage.getItem(USER_KEY);
-      const parsed = saved ? JSON.parse(saved) : null;
-      return sanitizeModules(parsed?.roleDetails?.moduleAccess || [], parsed?.role);
-    } catch {
-      return [];
+    if (typeof document !== 'undefined') {
+      document.cookie = 'traffic_token=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'accessToken=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'refreshToken=; path=/; max-age=0; SameSite=Lax';
     }
-  });
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+    authApi.logout().catch(() => {});
+    setUser(null);
+    setModuleAccess([]);
+    setIsLoading(false);
+  }, []);
 
   // Function to explicitly call the Get Permission API from backend
   const fetchUserPermissions = useCallback(async (userId?: string) => {
@@ -80,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setModuleAccess(perms);
         setUser((prev) => {
           if (!prev) return prev;
-          const updated: AuthUser = {
+          return {
             ...prev,
             role: res.data.role || prev.role,
             roleDetails: {
@@ -93,8 +103,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               moduleAccess: perms,
             },
           };
-          localStorage.setItem(USER_KEY, JSON.stringify(updated));
-          return updated;
         });
       }
     } catch (err: any) {
@@ -102,23 +110,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.role]);
 
-  // Sync / refresh profile & permissions on mount if token exists in cookies
+  // Sync / refresh profile & permissions on mount purely via cookies
   useEffect(() => {
-    // Clean up any legacy token keys from localStorage
-    localStorage.removeItem('traffic_auth_token');
-    localStorage.removeItem('traffic_refresh_token');
-
-    const getCookieToken = (): string | null => {
-      if (typeof document !== 'undefined') {
-        const match = document.cookie.match(/(?:^|;\s*)(?:traffic_token|accessToken)=([^;]+)/);
-        if (match) return decodeURIComponent(match[1]);
-      }
-      return null;
-    };
+    // Clear any obsolete localStorage keys once
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('traffic_auth_user');
+      localStorage.removeItem('traffic_auth_token');
+      localStorage.removeItem('traffic_refresh_token');
+    }
 
     const token = getCookieToken();
-    if (token) {
-      authApi.getProfile().then(async (res) => {
+    if (!token) {
+      logout();
+      return;
+    }
+
+    setIsLoading(true);
+    authApi
+      .getProfile()
+      .then(async (res) => {
         if (res.success && res.data) {
           const sanitized = sanitizeModules(res.data.roleDetails?.moduleAccess || [], res.data.role);
           const cleanUser: AuthUser = {
@@ -135,14 +145,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           setUser(cleanUser);
           setModuleAccess(sanitized);
-          localStorage.setItem(USER_KEY, JSON.stringify(cleanUser));
           await fetchUserPermissions(cleanUser.id);
+        } else {
+          // Token is invalid/unauthorized
+          logout();
         }
-      }).catch(async () => {
-        await fetchUserPermissions();
+      })
+      .catch(() => {
+        logout();
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-    }
-  }, [fetchUserPermissions]);
+  }, [logout, fetchUserPermissions]);
+
+  // Real-time listener for cookie deletion, 401 unauthorized responses, or window focus
+  useEffect(() => {
+    const handleCheckCookie = () => {
+      const token = getCookieToken();
+      if (!token) {
+        logout();
+      }
+    };
+
+    window.addEventListener('auth:unauthorized', handleCheckCookie);
+    window.addEventListener('focus', handleCheckCookie);
+    const interval = setInterval(handleCheckCookie, 2000);
+
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleCheckCookie);
+      window.removeEventListener('focus', handleCheckCookie);
+      clearInterval(interval);
+    };
+  }, [logout]);
 
   const login = useCallback(async (identifier: string, password: string) => {
     setIsLoading(true);
@@ -151,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await authApi.login(identifier, password);
       if (res.success && res.data) {
         const { user: userData, accessToken } = res.data;
-        // Token is stored in cookies, not in localStorage
+        // Token is stored strictly in cookies
         if (typeof document !== 'undefined') {
           document.cookie = `traffic_token=${accessToken}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`;
         }
@@ -177,7 +212,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Permissions API warning:', permErr.message);
         }
 
-        localStorage.setItem(USER_KEY, JSON.stringify(userData));
         setUser(userData);
         setModuleAccess(finalModules);
 
@@ -196,20 +230,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem('traffic_auth_token');
-    localStorage.removeItem('traffic_refresh_token');
-    if (typeof document !== 'undefined') {
-      document.cookie = 'traffic_token=; path=/; max-age=0; SameSite=Lax';
-      document.cookie = 'accessToken=; path=/; max-age=0; SameSite=Lax';
-      document.cookie = 'refreshToken=; path=/; max-age=0; SameSite=Lax';
-    }
-    authApi.logout().catch(() => {});
-    setUser(null);
-    setModuleAccess([]);
   }, []);
 
   const refreshPermissions = useCallback(async () => {
@@ -252,7 +272,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role,
         roleDetails,
         moduleAccess,
-        isAuthenticated: !!user,
+        isAuthenticated: Boolean(user && getCookieToken()),
         isLoading,
         login,
         logout,

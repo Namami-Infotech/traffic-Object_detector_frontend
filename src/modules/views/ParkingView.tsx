@@ -17,15 +17,23 @@ export interface ParkingViewProps {
   displayActiveCount?: number;
   dbCameraStats?: any;
   cameraVehicleInOutMap?: Record<string, Record<string, { in: number; out: number }>>;
+  searchTerm?: string;
 }
 
 export const ParkingView: React.FC<ParkingViewProps> = ({
   canWrite = false,
   canDelete = false,
+  searchTerm,
 }) => {
-  const [parkingTab, setParkingTab] = useState<'TABLE' | 'AREAS' | 'SLOTS' | 'BOOKINGS'>('TABLE');
+  const [parkingTab, setParkingTab] = useState<'TABLE' | 'SLOTS' | 'BOOKINGS'>('TABLE');
   const [parkingLots, setParkingLots] = useState<any[]>([]);
   const [parkingSearch, setParkingSearch] = useState('');
+
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setParkingSearch(searchTerm);
+    }
+  }, [searchTerm]);
   const [selectedLotId, setSelectedLotId] = useState<string>('');
   const [isParkingLoading, setIsParkingLoading] = useState(false);
   const [isAddParkingOpen, setIsAddParkingOpen] = useState(false);
@@ -221,98 +229,131 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
 
       {/* Parking Main Panel */}
       <div className="glass-panel" style={{ padding: '0.8rem', overflow: 'hidden' }}>
-        {/* Header Controls */}
+        {/* Unified Table Controls & Search Bar */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '10px',
             flexWrap: 'wrap',
-            gap: '12px',
             marginBottom: '1rem',
+            background: '#f8fafc',
+            padding: '0.6rem 0.8rem',
+            borderRadius: '8px',
+            border: '1px solid var(--border-color)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Car size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              Smart Parking Management
-            </h3>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600,
-              }}
-            >
-              {parkingLots.length} Lots
-            </span>
-          </div>
-
-          {/* View Tabs & Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {/* Tab Pills */}
-            <div style={{ display: 'flex', background: '#f8fafc', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              {(['TABLE', 'AREAS', 'SLOTS', 'BOOKINGS'] as const).map((tab) => {
-                const isActive = parkingTab === tab;
-                const label =
-                  tab === 'TABLE'
-                    ? 'Lots Table'
-                    : tab === 'AREAS'
-                    ? 'Cards'
-                    : tab === 'SLOTS'
+          {/* Tab Pills */}
+          <div style={{ display: 'flex', background: '#ffffff', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+            {(['TABLE', 'SLOTS', 'BOOKINGS'] as const).map((tab) => {
+              const isActive = parkingTab === tab;
+              const label =
+                tab === 'TABLE'
+                  ? 'Lots Table'
+                  : tab === 'SLOTS'
                     ? 'Slots Matrix'
                     : 'Bookings';
-                return (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setParkingTab(tab)}
-                    style={{
-                      background: isActive ? 'var(--accent-blue)' : 'transparent',
-                      color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                      border: 'none',
-                      padding: '5px 11px',
-                      borderRadius: '6px',
-                      fontSize: '0.76rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
+              return (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setParkingTab(tab)}
+                  style={{
+                    background: isActive ? 'var(--accent-blue)' : 'transparent',
+                    color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                    border: 'none',
+                    padding: '5px 11px',
+                    borderRadius: '6px',
+                    fontSize: '0.76rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
 
-            <button
-              type="button"
-              onClick={fetchParkingLots}
-              disabled={isParkingLoading}
-              title="Refresh Parking Lots"
+          {/* Search Input for Lots */}
+          {parkingTab === 'TABLE' && (
+            <div
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
                 background: '#ffffff',
                 border: '1px solid var(--border-color)',
-                color: 'var(--text-secondary)',
-                padding: '6px 12px',
                 borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
+                padding: '4px 10px',
+                minWidth: '220px',
+                maxWidth: '320px',
+                flex: '1 1 auto',
               }}
             >
-              <RefreshCw size={13} className={isParkingLoading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
+              <Search size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+              <input
+                type="text"
+                placeholder="Search parking lots or location..."
+                value={parkingSearch}
+                onChange={(e) => setParkingSearch(e.target.value)}
+                style={{
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontSize: '0.8rem',
+                  width: '100%',
+                  color: 'var(--text-primary)',
+                }}
+              />
+              {parkingSearch && (
+                <button
+                  type="button"
+                  onClick={() => setParkingSearch('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          )}
 
-            {canWrite && (
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            {parkingTab !== 'BOOKINGS' && (
+              <button
+                type="button"
+                onClick={fetchParkingLots}
+                disabled={isParkingLoading}
+                title="Refresh Parking Lots"
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid var(--border-color)',
+                  color: 'var(--text-secondary)',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <RefreshCw size={13} className={isParkingLoading ? 'animate-spin' : ''} />
+                Refresh
+              </button>
+            )}
+
+            {canWrite && parkingTab !== 'BOOKINGS' && (
               <button
                 type="button"
                 onClick={() => setIsAddParkingOpen(true)}
@@ -340,38 +381,6 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
         {/* TAB 0: PARKING LOTS TABLE */}
         {parkingTab === 'TABLE' && (
           <div>
-            {/* Search Bar */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                flexWrap: 'wrap',
-                marginBottom: '1rem',
-                background: '#f8fafc',
-                padding: '0.6rem 0.8rem',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '200px' }}>
-                <Search size={15} color="var(--text-muted)" />
-                <input
-                  type="text"
-                  placeholder="Search parking by name or location..."
-                  value={parkingSearch}
-                  onChange={(e) => setParkingSearch(e.target.value)}
-                  style={{
-                    border: 'none',
-                    background: 'transparent',
-                    outline: 'none',
-                    fontSize: '0.82rem',
-                    width: '100%',
-                    color: 'var(--text-primary)',
-                  }}
-                />
-              </div>
-            </div>
 
             {/* Table Content */}
             <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
@@ -599,123 +608,6 @@ export const ParkingView: React.FC<ParkingViewProps> = ({
           </div>
         )}
 
-        {/* TAB 1: AREAS CARDS */}
-        {parkingTab === 'AREAS' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', marginTop: '0.5rem' }}>
-            {parkingLots.map((lot) => {
-              const available = Math.max(0, lot.totalSpace - lot.occupiedSpace);
-              const percent = lot.totalSpace > 0 ? Math.round((lot.occupiedSpace / lot.totalSpace) * 100) : 0;
-              const bannersList = Array.isArray(lot.banners) ? lot.banners : [];
-
-              return (
-                <div key={lot.id} style={{ border: '1px solid var(--border-color)', borderRadius: '10px', padding: '1rem', background: '#ffffff', display: 'flex', flexDirection: 'column' }}>
-                  {/* Banner Image Preview / Uploader */}
-                  {bannersList.length > 0 ? (
-                    <div
-                      style={{
-                        position: 'relative',
-                        height: '130px',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        marginBottom: '10px',
-                        cursor: 'pointer',
-                        background: '#0f172a',
-                      }}
-                      onClick={() => setPreviewImage(bannersList[0])}
-                      title="Click to view full banner"
-                    >
-                      <img
-                        src={bannersList[0]}
-                        alt={lot.name}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          bottom: '6px',
-                          right: '6px',
-                          background: 'rgba(0,0,0,0.75)',
-                          color: '#ffffff',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontSize: '0.68rem',
-                          fontWeight: 600,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <ImageIcon size={11} />
-                        {bannersList.length} {bannersList.length > 1 ? 'Banners' : 'Banner'}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      onClick={() => setManageBannersLot(lot)}
-                      style={{
-                        height: '75px',
-                        borderRadius: '8px',
-                        border: '1px dashed var(--border-color)',
-                        background: '#f8fafc',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '4px',
-                        marginBottom: '10px',
-                        cursor: 'pointer',
-                        color: 'var(--text-muted)',
-                        fontSize: '0.74rem',
-                      }}
-                      title="Upload banner images"
-                    >
-                      <Upload size={16} color="var(--accent-blue)" />
-                      <span>Upload Banner Images</span>
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <div style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1rem' }}>{lot.name}</div>
-                    <span style={{ fontSize: '0.72rem', background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                      {percent}% Full
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                    Location: {lot.location || 'Central Area'}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', background: '#f8fafc', padding: '8px', borderRadius: '6px', fontSize: '0.78rem', marginBottom: '10px' }}>
-                    <div>Total: <strong>{lot.totalSpace}</strong></div>
-                    <div>Free: <strong style={{ color: '#059669' }}>{available}</strong></div>
-                    <div>Car: ₹{lot.pricePerHour}/day</div>
-                    <div>Bike: ₹{lot.priceTwoWheeler || 20}/day</div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setManageBannersLot(lot)}
-                    style={{
-                      marginTop: 'auto',
-                      background: '#f0f9ff',
-                      color: '#0284c7',
-                      border: '1px solid #bae6fd',
-                      padding: '6px 10px',
-                      borderRadius: '6px',
-                      fontSize: '0.76rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '5px',
-                    }}
-                  >
-                    <ImageIcon size={13} />
-                    Manage Banners ({bannersList.length})
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
 
         {/* TAB 2: SLOTS MATRIX */}
         {parkingTab === 'SLOTS' && (

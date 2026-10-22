@@ -19,7 +19,6 @@ import {
   Layers,
   ShieldCheck,
   AlertTriangle,
-  CalendarCheck,
 } from 'lucide-react';
 import { tollApi } from '../../services/api';
 import type {
@@ -33,11 +32,13 @@ import type {
 export interface TollViewProps {
   canWrite?: boolean;
   canDelete?: boolean;
+  searchTerm?: string;
 }
 
 export const TollView: React.FC<TollViewProps> = ({
   canWrite = true,
   canDelete = true,
+  searchTerm,
 }) => {
   // Mode: 'bookings' | 'deduct' | 'plazas'
   const [activeTab, setActiveTab] = useState<'bookings' | 'deduct' | 'plazas'>('bookings');
@@ -51,6 +52,12 @@ export const TollView: React.FC<TollViewProps> = ({
   // Toll Bookings state
   const [bookings, setBookings] = useState<TollBookingItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (searchTerm !== undefined) {
+      setSearchQuery(searchTerm);
+    }
+  }, [searchTerm]);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED'>('ALL');
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [bookingFormData, setBookingFormData] = useState<TollBookingInput>({
@@ -544,218 +551,117 @@ export const TollView: React.FC<TollViewProps> = ({
 
       {/* Main Table Glass-Panel Container (Matching Old Table Structure Exactly) */}
       <div className="glass-panel" style={{ padding: '1rem', overflow: 'hidden' }}>
-        {/* Header Controls */}
+        {/* Unified Table Controls Toolbar (View Mode + Search + Status + Action Buttons) */}
         <div
           style={{
             display: 'flex',
-            justifyContent: 'space-between',
             alignItems: 'center',
-            flexWrap: 'wrap',
+            justifyContent: 'space-between',
             gap: '12px',
-            marginBottom: '1rem',
-          }}
-        >
-          {/* Left Title with Icon & Badge */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CalendarCheck size={20} color="var(--accent-blue)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-              {activeTab === 'bookings'
-                ? 'Toll Bookings & Passes'
-                : activeTab === 'deduct'
-                ? 'Vehicle IN & Trip Deduction (-1)'
-                : 'Toll Plazas & Rates'}
-            </h3>
-            <span
-              style={{
-                fontSize: '0.75rem',
-                background: '#eff6ff',
-                color: '#1d4ed8',
-                border: '1px solid #bfdbfe',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontWeight: 600,
-              }}
-            >
-              {activeTab === 'bookings'
-                ? `${filteredBookings.length} Bookings`
-                : activeTab === 'deduct'
-                ? `${entryLogs.length} Entries Logged`
-                : `${filteredTolls.length} Plazas`}
-            </span>
-          </div>
-
-          {/* Right Header Navigation Chips & Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            {/* View Mode Switcher */}
-            <div
-              style={{
-                display: 'flex',
-                background: '#f8fafc',
-                padding: '3px',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setActiveTab('bookings')}
-                style={{
-                  background: activeTab === 'bookings' ? 'var(--accent-blue)' : 'transparent',
-                  color: activeTab === 'bookings' ? '#ffffff' : 'var(--text-secondary)',
-                  border: 'none',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                }}
-              >
-                <Receipt size={13} />
-                Toll Bookings
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('deduct')}
-                style={{
-                  background: activeTab === 'deduct' ? '#059669' : 'transparent',
-                  color: activeTab === 'deduct' ? '#ffffff' : 'var(--text-secondary)',
-                  border: 'none',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                }}
-              >
-                <ArrowRight size={13} />
-                Vehicle IN (-1 Deduct)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('plazas')}
-                style={{
-                  background: activeTab === 'plazas' ? 'var(--accent-blue)' : 'transparent',
-                  color: activeTab === 'plazas' ? '#ffffff' : 'var(--text-secondary)',
-                  border: 'none',
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                }}
-              >
-                <Building2 size={13} />
-                Toll Plazas
-              </button>
-            </div>
-
-            {/* Refresh Button */}
-            <button
-              type="button"
-              onClick={fetchData}
-              disabled={isLoading}
-              title="Refresh Data"
-              style={{
-                background: '#ffffff',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-secondary)',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
-
-            {/* Add Action Button */}
-            {canWrite && activeTab === 'bookings' && (
-              <button
-                type="button"
-                onClick={handleOpenAddBooking}
-                style={{
-                  background: 'var(--accent-blue)',
-                  border: 'none',
-                  color: '#ffffff',
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <Plus size={14} />
-                New Toll Booking
-              </button>
-            )}
-
-            {canWrite && activeTab === 'plazas' && (
-              <button
-                type="button"
-                onClick={handleOpenAddPlaza}
-                style={{
-                  background: 'var(--accent-blue)',
-                  border: 'none',
-                  color: '#ffffff',
-                  padding: '6px 14px',
-                  borderRadius: '6px',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                <Plus size={14} />
-                Add New Toll
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Filter / Search Bar in Old Style */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '10px',
             flexWrap: 'wrap',
             marginBottom: '1rem',
             background: '#f8fafc',
             padding: '0.6rem 0.8rem',
-            borderRadius: '8px',
+            borderRadius: '10px',
             border: '1px solid var(--border-color)',
           }}
         >
+          {/* View Mode Switcher */}
+          <div
+            style={{
+              display: 'flex',
+              background: '#ffffff',
+              padding: '3px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveTab('bookings')}
+              style={{
+                background: activeTab === 'bookings' ? 'var(--accent-blue)' : 'transparent',
+                color: activeTab === 'bookings' ? '#ffffff' : 'var(--text-secondary)',
+                border: 'none',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <Receipt size={13} />
+              Toll Bookings
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('deduct')}
+              style={{
+                background: activeTab === 'deduct' ? '#059669' : 'transparent',
+                color: activeTab === 'deduct' ? '#ffffff' : 'var(--text-secondary)',
+                border: 'none',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <ArrowRight size={13} />
+              Vehicle IN (-1 Deduct)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('plazas')}
+              style={{
+                background: activeTab === 'plazas' ? 'var(--accent-blue)' : 'transparent',
+                color: activeTab === 'plazas' ? '#ffffff' : 'var(--text-secondary)',
+                border: 'none',
+                padding: '5px 12px',
+                borderRadius: '6px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+              }}
+            >
+              <Building2 size={13} />
+              Toll Plazas
+            </button>
+          </div>
+
           {/* Search Input */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: '1', minWidth: '220px' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flex: '1',
+              minWidth: '200px',
+              maxWidth: '320px',
+              background: '#ffffff',
+              border: '1px solid var(--border-color)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+            }}
+          >
             <Search size={15} color="var(--text-muted)" />
             <input
               type="text"
               placeholder={
                 activeTab === 'bookings'
-                  ? 'Search by vehicle number, customer name, phone...'
+                  ? 'Search vehicle number, name, phone...'
                   : activeTab === 'plazas'
                   ? 'Search toll plaza by name...'
                   : 'Filter vehicle entry logs...'
@@ -784,6 +690,7 @@ export const TollView: React.FC<TollViewProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                 }}
+                title="Clear search"
               >
                 <X size={14} />
               </button>
@@ -792,28 +699,106 @@ export const TollView: React.FC<TollViewProps> = ({
 
           {/* Status Filter for Bookings */}
           {activeTab === 'bookings' && (
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {(['ALL', 'ACTIVE', 'COMPLETED', 'EXPIRED'] as const).map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => setStatusFilter(st)}
-                  style={{
-                    background: statusFilter === st ? '#ffffff' : 'transparent',
-                    color: statusFilter === st ? 'var(--accent-blue)' : 'var(--text-secondary)',
-                    border: statusFilter === st ? '1px solid var(--border-color)' : 'none',
-                    padding: '3px 8px',
-                    borderRadius: '5px',
-                    fontSize: '0.74rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {st}
-                </button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Status:</span>
+              <div style={{ display: 'flex', background: '#ffffff', padding: '3px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                {(['ALL', 'ACTIVE', 'COMPLETED', 'EXPIRED'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setStatusFilter(st)}
+                    style={{
+                      background: statusFilter === st ? 'var(--accent-blue)' : 'transparent',
+                      color: statusFilter === st ? '#ffffff' : 'var(--text-secondary)',
+                      border: 'none',
+                      padding: '3px 8px',
+                      borderRadius: '5px',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
+
+          {/* Action buttons (Refresh + Add) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={fetchData}
+              disabled={isLoading}
+              title="Refresh Data"
+              style={{
+                background: '#ffffff',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              }}
+            >
+              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+
+            {canWrite && activeTab === 'bookings' && (
+              <button
+                type="button"
+                onClick={handleOpenAddBooking}
+                style={{
+                  background: 'var(--accent-blue)',
+                  border: 'none',
+                  color: '#ffffff',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+                }}
+              >
+                <Plus size={14} />
+                New Toll Booking
+              </button>
+            )}
+
+            {canWrite && activeTab === 'plazas' && (
+              <button
+                type="button"
+                onClick={handleOpenAddPlaza}
+                style={{
+                  background: 'var(--accent-blue)',
+                  border: 'none',
+                  color: '#ffffff',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+                }}
+              >
+                <Plus size={14} />
+                Add New Toll
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ========================================================================= */}
@@ -1404,9 +1389,7 @@ export const TollView: React.FC<TollViewProps> = ({
                 <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
                   New Toll Booking
                 </h3>
-                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  User Details &amp; Number of Trips (1, 2, 3, 4...)
-                </div>
+
               </div>
               <button
                 type="button"
@@ -1545,9 +1528,7 @@ export const TollView: React.FC<TollViewProps> = ({
               {/* Kitane Time Ke Liye Booking Kr Rha H (Count: 1, 2, 3, 4...) */}
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                    Number of Trips to Book (1, 2, 3, 4...) <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
+
                   <span style={{ fontSize: '0.75rem', color: 'var(--accent-blue)', fontWeight: 700 }}>
                     {bookingFormData.bookedCount} Trips
                   </span>

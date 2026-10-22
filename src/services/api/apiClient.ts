@@ -72,6 +72,11 @@ class ApiClient {
           } catch {
             // refresh token expired or invalid
           }
+
+          // Refresh token failed or expired -> notify app to reset auth state
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+          }
         }
         return Promise.reject(error);
       }
@@ -93,6 +98,9 @@ class ApiClient {
       return response.data;
     } catch (error: any) {
       if (error.response) {
+        if (error.response.status === 401 && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        }
         const responseData = error.response.data || {};
         return {
           success: false,
