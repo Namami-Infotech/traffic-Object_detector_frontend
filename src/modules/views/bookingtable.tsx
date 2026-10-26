@@ -19,11 +19,13 @@ import {
   QrCode,
   Printer,
   Download,
+  CreditCard,
 } from 'lucide-react';
 import { bookingApi } from '../../services/api/bookingApi';
 import type { Booking, BookingInput, BookingStats } from '../../services/api/bookingApi';
 import { parkingApi } from '../../services/api/parkingApi';
 import { QRScannerModal } from './QRScannerModal';
+import { openRazorpayCheckout } from '../../utils/razorpay';
 
 export interface BookingTableProps {
   canWrite?: boolean;
@@ -71,6 +73,7 @@ export const BookingTable: React.FC<BookingTableProps> = ({
 
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'CASH'>('RAZORPAY');
 
   // Fetch bookings and stats
   const fetchBookings = async () => {
@@ -190,6 +193,7 @@ export const BookingTable: React.FC<BookingTableProps> = ({
       notes: '',
     });
     setEditingBooking(null);
+    setPaymentMethod('RAZORPAY');
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -262,7 +266,77 @@ export const BookingTable: React.FC<BookingTableProps> = ({
           setFormError(res.message || 'Failed to update booking');
         }
       } else {
-        const res = await bookingApi.create(payload);
+        const totalAmount = Number(payload.totalAmount) || 0;
+        if (paymentMethod === 'RAZORPAY' && totalAmount > 0) {
+          try {
+            const orderRes = await bookingApi.createOrder({
+              amount: totalAmount,
+              vehicleNumber: payload.vehicleNumber,
+              userName: payload.userName,
+              phoneNumber: payload.phoneNumber,
+              parkingLotName: payload.parkingLotName || undefined,
+            });
+
+            if (!orderRes.success || !orderRes.data?.orderId) {
+              throw new Error(orderRes.message || 'Failed to create Razorpay payment order');
+            }
+
+            await openRazorpayCheckout({
+              orderId: orderRes.data.orderId,
+              key: orderRes.data.keyId,
+              amount: totalAmount,
+              name: 'TrafficVision AI - Vehicle Parking',
+              description: `Parking for ${payload.vehicleNumber} at ${payload.parkingLotName || 'General Parking'}`,
+              prefill: {
+                name: payload.userName,
+                contact: payload.phoneNumber,
+              },
+              onSuccess: async (rzpResp) => {
+                try {
+                  const res = await bookingApi.create({
+                    ...payload,
+                    paymentStatus: 'PAID',
+                    paymentMethod: 'RAZORPAY',
+                    razorpayOrderId: rzpResp.razorpay_order_id,
+                    razorpayPaymentId: rzpResp.razorpay_payment_id,
+                    razorpaySignature: rzpResp.razorpay_signature,
+                  });
+
+                  if (res.success && res.data) {
+                    setIsModalOpen(false);
+                    setQrModalBooking(res.data);
+                    fetchBookings();
+                  } else {
+                    setFormError(res.message || 'Payment received but failed to create booking pass');
+                  }
+                } catch (saveErr: any) {
+                  setFormError(saveErr.message || 'Error occurred while saving booking pass');
+                } finally {
+                  setIsSubmitting(false);
+                }
+              },
+              onError: (err: any) => {
+                setFormError(err?.description || 'Razorpay payment was cancelled or failed.');
+                setIsSubmitting(false);
+              },
+              onDismiss: () => {
+                setIsSubmitting(false);
+              },
+            });
+            return;
+          } catch (err: any) {
+            setFormError(err.message || 'Error occurred during Razorpay checkout');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+
+        // Cash / free booking
+        const res = await bookingApi.create({
+          ...payload,
+          paymentStatus: 'PAID',
+          paymentMethod: totalAmount > 0 ? 'CASH' : 'FREE',
+        });
         if (res.success && res.data) {
           setIsModalOpen(false);
           setQrModalBooking(res.data);
@@ -647,6 +721,7 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>End Date</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>Duration</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>Amount</th>
+                <th style={{ padding: '10px 8px', fontWeight: 600 }}>Payment</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>Status</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600 }}>Booked By</th>
                 <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'right' }}>Actions</th>
@@ -655,7 +730,7 @@ export const BookingTable: React.FC<BookingTableProps> = ({
             <tbody>
               {filteredBookings.length === 0 ? (
                 <tr>
-                  <td colSpan={14} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
+                  <td colSpan={15} style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)' }}>
                     {isLoading ? 'Loading bookings...' : 'No vehicle bookings found. Click "New Booking" to create one.'}
                   </td>
                 </tr>
@@ -802,6 +877,46 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                       {/* Amount */}
                       <td style={{ padding: '10px 8px', fontWeight: 700, color: '#4f46e5' }}>
                         ₹{Number(b.totalAmount || 0)}
+                      </td>
+
+                      {/* Payment */}
+                      <td style={{ padding: '10px 8px' }}>
+                        {b.razorpayPaymentId || b.paymentMethod === 'RAZORPAY' ? (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.72rem',
+                              background: '#eff6ff',
+                              color: '#1d4ed8',
+                              border: '1px solid #bfdbfe',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontWeight: 700,
+                            }}
+                            title={b.razorpayPaymentId ? `Razorpay ID: ${b.razorpayPaymentId}` : 'Paid via Razorpay'}
+                          >
+                            <CheckCircle2 size={12} color="#2563eb" /> Razorpay
+                          </span>
+                        ) : (
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '0.72rem',
+                              background: '#f8fafc',
+                              color: '#64748b',
+                              border: '1px solid #e2e8f0',
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                            }}
+                          >
+                            Cash
+                          </span>
+                        )}
                       </td>
 
                       {/* Status */}
@@ -1271,16 +1386,87 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                 />
               </div>
 
+              {/* Payment Method Selection (Only for New Bookings) */}
+              {!editingBooking && (
+                <div>
+                  <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    Payment Method:
+                  </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div
+                      onClick={() => setPaymentMethod('RAZORPAY')}
+                      style={{
+                        border: `1.5px solid ${paymentMethod === 'RAZORPAY' ? '#2563eb' : 'var(--border-color)'}`,
+                        background: paymentMethod === 'RAZORPAY' ? '#eff6ff' : '#ffffff',
+                        borderRadius: '8px',
+                        padding: '8px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="bookingPaymentMethod"
+                        checked={paymentMethod === 'RAZORPAY'}
+                        onChange={() => setPaymentMethod('RAZORPAY')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: paymentMethod === 'RAZORPAY' ? '#1d4ed8' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <CreditCard size={14} color="#2563eb" /> Razorpay
+                          <span style={{ fontSize: '0.62rem', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>TEST</span>
+                        </div>
+                        <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>UPI, Cards & NetBanking</div>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setPaymentMethod('CASH')}
+                      style={{
+                        border: `1.5px solid ${paymentMethod === 'CASH' ? '#2563eb' : 'var(--border-color)'}`,
+                        background: paymentMethod === 'CASH' ? '#eff6ff' : '#ffffff',
+                        borderRadius: '8px',
+                        padding: '8px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name="bookingPaymentMethod"
+                        checked={paymentMethod === 'CASH'}
+                        onChange={() => setPaymentMethod('CASH')}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 700, color: paymentMethod === 'CASH' ? '#1d4ed8' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <IndianRupee size={14} color="#059669" /> Cash / Free
+                        </div>
+                        <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Counter Payment</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <button
                 type="submit"
                 disabled={isSubmitting}
                 style={{
-                  background: 'var(--accent-blue)',
+                  background: (!editingBooking && paymentMethod === 'RAZORPAY' && (formData.totalAmount ?? 0) > 0)
+                    ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+                    : 'var(--accent-blue)',
                   color: '#ffffff',
                   border: 'none',
                   padding: '10px',
                   borderRadius: '6px',
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: '0.86rem',
                   cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   marginTop: '6px',
@@ -1288,9 +1474,23 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
+                  boxShadow: (!editingBooking && paymentMethod === 'RAZORPAY' && (formData.totalAmount ?? 0) > 0)
+                    ? '0 2px 6px rgba(29, 78, 216, 0.35)'
+                    : 'none',
                 }}
               >
-                {isSubmitting ? 'Saving...' : editingBooking ? 'Update Booking' : 'Create Booking'}
+                {isSubmitting ? (
+                  'Processing...'
+                ) : editingBooking ? (
+                  'Update Booking'
+                ) : paymentMethod === 'RAZORPAY' && (formData.totalAmount ?? 0) > 0 ? (
+                  <>
+                    <CreditCard size={15} />
+                    Pay ₹{formData.totalAmount}
+                  </>
+                ) : (
+                  `Cash Pay ₹${formData.totalAmount}`
+                )}
               </button>
             </form>
           </div>
@@ -1579,6 +1779,23 @@ export const BookingTable: React.FC<BookingTableProps> = ({
                       <strong style={{ fontSize: '0.95rem', color: '#4f46e5' }}>₹{Number(qrModalBooking.totalAmount || 0)}</strong>
                     </div>
                   </div>
+
+                  {(qrModalBooking.razorpayPaymentId || qrModalBooking.paymentMethod === 'RAZORPAY') ? (
+                    <div style={{ gridColumn: 'span 2', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '6px 10px', borderRadius: '6px', color: '#1d4ed8', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CheckCircle2 size={13} color="#2563eb" /> Paid via Razorpay
+                      </span>
+                      {qrModalBooking.razorpayPaymentId && (
+                        <span style={{ fontSize: '0.68rem', fontFamily: 'monospace', color: '#3b82f6' }}>
+                          {qrModalBooking.razorpayPaymentId}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ gridColumn: 'span 2', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '4px 8px', borderRadius: '4px', color: '#64748b', fontSize: '0.72rem' }}>
+                      Payment: <strong>Cash / Counter</strong>
+                    </div>
+                  )}
                 </div>
 
                 {/* Action Buttons */}

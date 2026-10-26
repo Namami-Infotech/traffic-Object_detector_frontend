@@ -29,6 +29,11 @@ export interface TollBookingItem {
   remainingCount: number; // Remaining trips (1 minus on each IN event)
   totalAmount: number;
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
+  paymentStatus?: 'PAID' | 'PENDING' | 'FAILED' | 'CASH';
+  paymentMethod?: 'RAZORPAY' | 'CASH' | string | null;
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  razorpaySignature?: string | null;
   bookingDate: string;
   validUntil: string;
   qrCode?: string | null;
@@ -48,6 +53,11 @@ export interface TollBookingInput {
   ratePerEntry?: number;
   validDays?: number;
   notes?: string;
+  paymentStatus?: 'PAID' | 'PENDING' | 'FAILED' | 'CASH';
+  paymentMethod?: 'RAZORPAY' | 'CASH' | string | null;
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  razorpaySignature?: string | null;
 }
 
 export interface TollEntryLogItem {
@@ -128,6 +138,17 @@ export const tollApi = {
 
   getBookingById(id: string): Promise<ApiResponse<TollBookingItem>> {
     return apiClient.get<TollBookingItem>(`/api/v1/toll/bookings/${encodeURIComponent(id)}`);
+  },
+
+  createOrder(data: {
+    amount: number;
+    vehicleNumber: string;
+    userName: string;
+    phoneNumber: string;
+    tollName?: string;
+    bookedCount?: number;
+  }): Promise<ApiResponse<{ orderId: string; amount: number; amountInRupees: number; currency: string; keyId: string; receipt?: string }>> {
+    return apiClient.post('/api/v1/toll/bookings/create-order', data);
   },
 
   createBooking(data: TollBookingInput): Promise<ApiResponse<TollBookingItem>> {

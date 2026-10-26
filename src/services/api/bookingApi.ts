@@ -14,6 +14,11 @@ export interface Booking {
   slotNumber?: string | null;
   totalAmount?: number | null;
   status: 'CONFIRMED' | 'PENDING' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
+  paymentStatus?: 'PAID' | 'PENDING' | 'FAILED' | 'CASH';
+  paymentMethod?: 'RAZORPAY' | 'CASH' | 'FREE' | string | null;
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  razorpaySignature?: string | null;
   notes?: string | null;
   bookedBy?: string | null;
   bookedById?: string | null;
@@ -36,9 +41,24 @@ export interface BookingInput {
   slotNumber?: string;
   totalAmount?: number;
   status?: 'CONFIRMED' | 'PENDING' | 'CANCELLED' | 'COMPLETED' | 'EXPIRED';
+  paymentStatus?: 'PAID' | 'PENDING' | 'FAILED' | 'CASH';
+  paymentMethod?: 'RAZORPAY' | 'CASH' | 'FREE' | string | null;
+  razorpayOrderId?: string | null;
+  razorpayPaymentId?: string | null;
+  razorpaySignature?: string | null;
   notes?: string;
   bookedBy?: string;
   bookedById?: string;
+}
+
+export interface RazorpayOrderData {
+  orderId: string;
+  amount: number;
+  amountInRupees: number;
+  currency: string;
+  keyId: string;
+  receipt?: string;
+  status?: string;
 }
 
 export interface BookingStats {
@@ -110,6 +130,17 @@ export const bookingApi = {
   // GET /api/v1/booking/:id
   getById(id: string): Promise<ApiResponse<Booking>> {
     return apiClient.get<Booking>(`/api/v1/booking/${encodeURIComponent(id)}`);
+  },
+
+  // POST /api/v1/booking/create-order
+  createOrder(data: {
+    amount: number;
+    vehicleNumber: string;
+    userName: string;
+    phoneNumber: string;
+    parkingLotName?: string;
+  }): Promise<ApiResponse<RazorpayOrderData>> {
+    return apiClient.post<RazorpayOrderData>('/api/v1/booking/create-order', data);
   },
 
   // POST /api/v1/booking

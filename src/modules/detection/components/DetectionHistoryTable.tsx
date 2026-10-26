@@ -184,20 +184,7 @@ export const DetectionHistoryTable: React.FC<DetectionHistoryTableProps> = ({
               )}
             </div>
 
-            <span
-              style={{
-                fontSize: '0.74rem',
-                fontWeight: 600,
-                color: 'var(--text-secondary)',
-                background: '#f1f5f9',
-                padding: '5px 9px',
-                borderRadius: '6px',
-                whiteSpace: 'nowrap',
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              {totalCount} logs
-            </span>
+            
           </div>
 
           {/* Right: Action Buttons (ANPR Scan, Refresh, Clear) */}

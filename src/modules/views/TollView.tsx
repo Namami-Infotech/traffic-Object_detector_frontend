@@ -20,8 +20,10 @@ import {
   ShieldCheck,
   AlertTriangle,
   RotateCcw,
+  CreditCard,
 } from 'lucide-react';
 import { tollApi } from '../../services/api';
+import { openRazorpayCheckout } from '../../utils/razorpay';
 import type {
   TollItem,
   TollBookingItem,
@@ -71,6 +73,7 @@ export const TollView: React.FC<TollViewProps> = ({
     validDays: 30,
     notes: '',
   });
+  const [paymentMethod, setPaymentMethod] = useState<'RAZORPAY' | 'CASH'>('RAZORPAY');
 
   // Gadi IN & Deduct 1 Trip state
   const [deductPlate, setDeductPlate] = useState('');
@@ -173,6 +176,7 @@ export const TollView: React.FC<TollViewProps> = ({
       validDays: 30,
       notes: '',
     });
+    setPaymentMethod('RAZORPAY');
     setFormError(null);
     setIsBookingModalOpen(true);
   };
@@ -214,17 +218,100 @@ export const TollView: React.FC<TollViewProps> = ({
       return;
     }
 
+    const ratePerEntry = Number(bookingFormData.ratePerEntry) || 150;
+    const totalAmount = parseFloat((bookedCount * ratePerEntry).toFixed(2));
+    const selectedToll = tolls.find((t) => t.id === bookingFormData.tollId);
+    const tollName = selectedToll?.name || 'Yamuna Expressway Main Toll Plaza';
+
     setIsSaving(true);
+
+    if (paymentMethod === 'RAZORPAY') {
+      try {
+        const orderRes = await tollApi.createOrder({
+          amount: totalAmount,
+          vehicleNumber,
+          userName,
+          phoneNumber,
+          tollName,
+          bookedCount,
+        });
+
+        if (!orderRes.success || !orderRes.data?.orderId) {
+          throw new Error(orderRes.message || 'Failed to initiate Razorpay order');
+        }
+
+        await openRazorpayCheckout({
+          orderId: orderRes.data.orderId,
+          key: orderRes.data.keyId,
+          amount: totalAmount,
+          name: 'TrafficVision AI - Toll Pass',
+          description: `${bookedCount} Trips at ${tollName}`,
+          prefill: {
+            name: userName,
+            contact: phoneNumber,
+          },
+          onSuccess: async (rzpResp) => {
+            try {
+              const res = await tollApi.createBooking({
+                userName,
+                phoneNumber,
+                vehicleNumber,
+                tollId: bookingFormData.tollId || undefined,
+                tollName,
+                bookedCount,
+                ratePerEntry,
+                validDays: Number(bookingFormData.validDays) || 30,
+                notes: bookingFormData.notes,
+                paymentStatus: 'PAID',
+                paymentMethod: 'RAZORPAY',
+                razorpayOrderId: rzpResp.razorpay_order_id,
+                razorpayPaymentId: rzpResp.razorpay_payment_id,
+                razorpaySignature: rzpResp.razorpay_signature,
+              });
+
+              if (res.success && res.data) {
+                setIsBookingModalOpen(false);
+                setActionSuccessMsg(`Toll booking verified & paid via Razorpay for ${res.data.vehicleNumber} (Payment ID: ${rzpResp.razorpay_payment_id})!`);
+                fetchData();
+                setQrModalBooking(res.data);
+              } else {
+                setFormError(res.message || 'Payment received but failed to create pass record');
+              }
+            } catch (saveErr: any) {
+              setFormError(saveErr.message || 'Failed to complete toll pass booking');
+            } finally {
+              setIsSaving(false);
+            }
+          },
+          onError: (err: any) => {
+            setFormError(err?.description || 'Razorpay payment was cancelled or failed.');
+            setIsSaving(false);
+          },
+          onDismiss: () => {
+            setIsSaving(false);
+          },
+        });
+      } catch (err: any) {
+        setFormError(err.message || 'Error occurred during Razorpay checkout');
+        setIsSaving(false);
+      }
+      return;
+    }
+
+    // Cash Payment option
     try {
       const res = await tollApi.createBooking({
         userName,
         phoneNumber,
         vehicleNumber,
         tollId: bookingFormData.tollId || undefined,
+        tollName,
         bookedCount,
-        ratePerEntry: Number(bookingFormData.ratePerEntry) || 150,
+        ratePerEntry,
         validDays: Number(bookingFormData.validDays) || 30,
         notes: bookingFormData.notes,
+        paymentStatus: 'PAID',
+        paymentMethod: 'CASH',
       });
 
       if (res.success && res.data) {
@@ -928,6 +1015,7 @@ export const TollView: React.FC<TollViewProps> = ({
                   <th style={{ padding: '10px 12px' }}>Toll Plaza</th>
                   <th style={{ padding: '10px 12px' }}>Trips Left / Booked</th>
                   <th style={{ padding: '10px 12px' }}>Total Fee</th>
+                  <th style={{ padding: '10px 12px' }}>Payment</th>
                   <th style={{ padding: '10px 12px' }}>Status</th>
                   <th style={{ padding: '10px 12px', textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -935,7 +1023,7 @@ export const TollView: React.FC<TollViewProps> = ({
               <tbody>
                 {filteredBookings.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
+                    <td colSpan={9} style={{ textAlign: 'center', padding: '2.5rem 1rem', color: 'var(--text-muted)' }}>
                       <Receipt size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
                       <div>{isLoading ? 'Loading bookings...' : 'No toll bookings match your search.'}</div>
                     </td>
@@ -1013,6 +1101,46 @@ export const TollView: React.FC<TollViewProps> = ({
                         {/* Total Amount */}
                         <td style={{ padding: '10px 12px', fontWeight: 700, color: 'var(--text-primary)' }}>
                           ₹{Number(b.totalAmount || 0).toFixed(2)}
+                        </td>
+
+                        {/* Payment */}
+                        <td style={{ padding: '10px 12px' }}>
+                          {b.razorpayPaymentId || b.paymentMethod === 'RAZORPAY' ? (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.72rem',
+                                background: '#eff6ff',
+                                color: '#1d4ed8',
+                                border: '1px solid #bfdbfe',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                              }}
+                              title={b.razorpayPaymentId ? `Razorpay ID: ${b.razorpayPaymentId}` : 'Paid via Razorpay'}
+                            >
+                              <CheckCircle2 size={12} color="#2563eb" /> Razorpay
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                fontSize: '0.72rem',
+                                background: '#f8fafc',
+                                color: '#64748b',
+                                border: '1px solid #e2e8f0',
+                                padding: '2px 8px',
+                                borderRadius: '6px',
+                                fontWeight: 600,
+                              }}
+                            >
+                              Cash
+                            </span>
+                          )}
                         </td>
 
                         {/* Status */}
@@ -1708,6 +1836,73 @@ export const TollView: React.FC<TollViewProps> = ({
                 </div>
               </div>
 
+              {/* Payment Method Selector */}
+              <div>
+                <label style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                  Payment Method:
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div
+                    onClick={() => setPaymentMethod('RAZORPAY')}
+                    style={{
+                      border: `1.5px solid ${paymentMethod === 'RAZORPAY' ? '#2563eb' : 'var(--border-color)'}`,
+                      background: paymentMethod === 'RAZORPAY' ? '#eff6ff' : '#ffffff',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="tollPaymentMethod"
+                      checked={paymentMethod === 'RAZORPAY'}
+                      onChange={() => setPaymentMethod('RAZORPAY')}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: paymentMethod === 'RAZORPAY' ? '#1d4ed8' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CreditCard size={14} color="#2563eb" /> Razorpay
+                        <span style={{ fontSize: '0.62rem', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>TEST</span>
+                      </div>
+                      <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>UPI, Cards, QR & NetBanking</div>
+                    </div>
+                  </div>
+
+                  <div
+                    onClick={() => setPaymentMethod('CASH')}
+                    style={{
+                      border: `1.5px solid ${paymentMethod === 'CASH' ? '#2563eb' : 'var(--border-color)'}`,
+                      background: paymentMethod === 'CASH' ? '#eff6ff' : '#ffffff',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="tollPaymentMethod"
+                      checked={paymentMethod === 'CASH'}
+                      onChange={() => setPaymentMethod('CASH')}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: paymentMethod === 'CASH' ? '#1d4ed8' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <CircleDollarSign size={14} color="#059669" /> Cash
+                      </div>
+                      <div style={{ fontSize: '0.66rem', color: 'var(--text-muted)' }}>Booth Counter Payment</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Buttons */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '0.5rem' }}>
                 <button
@@ -1730,20 +1925,32 @@ export const TollView: React.FC<TollViewProps> = ({
                   type="submit"
                   disabled={isSaving}
                   style={{
-                    padding: '6px 16px',
-                    background: 'var(--accent-blue)',
+                    padding: '8px 18px',
+                    background: paymentMethod === 'RAZORPAY'
+                      ? 'linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%)'
+                      : 'var(--accent-blue)',
                     border: 'none',
                     color: '#ffffff',
                     borderRadius: '6px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
                     cursor: isSaving ? 'not-allowed' : 'pointer',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
+                    boxShadow: paymentMethod === 'RAZORPAY' ? '0 2px 6px rgba(29, 78, 216, 0.35)' : 'none',
                   }}
                 >
-                  {isSaving ? 'Creating...' : 'Save & Generate Pass'}
+                  {isSaving ? (
+                    'Processing...'
+                  ) : paymentMethod === 'RAZORPAY' ? (
+                    <>
+                      <CreditCard size={15} />
+                      Pay ₹{(Number(bookingFormData.bookedCount || 1) * Number(bookingFormData.ratePerEntry || 150)).toFixed(2)} via Razorpay
+                    </>
+                  ) : (
+                    'Confirm Cash Booking'
+                  )}
                 </button>
               </div>
             </form>
@@ -1835,6 +2042,26 @@ export const TollView: React.FC<TollViewProps> = ({
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Amount</div>
                 <div style={{ fontSize: '1rem', fontWeight: 700 }}>₹{qrModalBooking.totalAmount}</div>
               </div>
+            </div>
+
+            {/* Payment Details in Modal */}
+            <div style={{ marginBottom: '1rem', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+              {qrModalBooking.razorpayPaymentId || qrModalBooking.paymentMethod === 'RAZORPAY' ? (
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '6px 8px', color: '#1d4ed8' }}>
+                  <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    <CheckCircle2 size={13} color="#2563eb" /> Paid via Razorpay
+                  </div>
+                  {qrModalBooking.razorpayPaymentId && (
+                    <div style={{ fontSize: '0.68rem', color: '#3b82f6', marginTop: '2px', fontFamily: 'monospace' }}>
+                      Txn: {qrModalBooking.razorpayPaymentId}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '6px 8px', color: '#64748b' }}>
+                  <span style={{ fontWeight: 600 }}>Payment: Cash / Counter</span>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }}>
